@@ -1,0 +1,2 @@
+A file that is not a hex, so the Flash Hex File entry has something to stay away
+from when a workspace file is right-clicked.

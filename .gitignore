@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vscode-test-web/
+.vscode-test/
+.playwright-mcp/
+*.vsix
+.env
+test/integration/dist/
+test/workspace/.vscode/
