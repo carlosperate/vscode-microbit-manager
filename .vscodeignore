@@ -5,6 +5,7 @@
 src/**
 test/**
 config/**
+api/**
 node_modules/**
 .gitignore
 .gitattributes

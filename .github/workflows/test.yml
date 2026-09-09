@@ -17,6 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          # Linux has no display, so running desktop VS Code needs xvfb.
+          - os: ubuntu-latest
+            xvfb: xvfb-run -a
     steps:
       - uses: actions/checkout@v7
 
@@ -33,3 +37,15 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+      # vscode-test-web exits 0 even when it never managed to listen, so the
+      # summary line is the verdict and the exit code says nothing. bash rather
+      # than the runner default, so the pipeline is the same on Windows.
+      - name: Integration tests, VS Code Web
+        shell: bash
+        run: |
+          npm run test:integration | tee web-integration.log
+          grep -q "ALL PASSED" web-integration.log
+
+      - name: Integration tests, desktop VS Code
+        run: ${{ matrix.xvfb }} npm run test:integration:desktop

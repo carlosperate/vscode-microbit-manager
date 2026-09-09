@@ -15,7 +15,7 @@ const shared = {
 	bundle: true,
 	format: 'cjs',
 	external: ['vscode'],
-	// Never shipped: .vscodeignore drops every .map from the VSIX.
+	// Kept for the development build; .vscodeignore drops the .map files from the VSIX.
 	sourcemap: true,
 	logLevel: 'warning',
 	absWorkingDir: root,

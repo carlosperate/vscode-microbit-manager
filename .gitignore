@@ -7,3 +7,4 @@ dist/
 .env
 test/integration/dist/
 test/workspace/.vscode/
+web-integration.log
