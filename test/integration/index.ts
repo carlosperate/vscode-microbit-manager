@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { COMMANDS, CONTAINER_ID, FALLBACK_VIEW_ID, PRODUCT } from '../../src/config';
+import { CAN_PAIR_CONTEXT, COMMANDS, CONTAINER_ID, FALLBACK_VIEW_ID, PRODUCT } from '../../src/config';
 import { API_VERSION } from '../../src/api';
 
 /**
@@ -40,6 +40,7 @@ export async function run(): Promise<void> {
 	checkTheWelcomeContentPointsAtRealCommands(extension);
 	checkEveryCommandSaysWhoOwnsIt(extension);
 	await checkContributedCommandsResolve(extension);
+	await checkPairingIsHiddenWhereItCannotHappen(extension);
 	await checkTheStubsAnswerRatherThanThrow();
 
 	summarise();
@@ -180,6 +181,44 @@ async function checkContributedCommandsResolve(extension: vscode.Extension<unkno
 		'every contributed command is registered',
 		missing.length === 0,
 		missing.length ? `missing: ${missing.join(', ')}` : `${contributed.length} commands resolve`
+	);
+}
+
+/**
+ * The whole design rests on one fact: the workbench bridges the device chooser
+ * on web and not in the Node host. Everything else here follows from it, so it
+ * is asserted per host rather than reported. A context key's effective value
+ * cannot be read back through the API, so what the `when` clause then does with
+ * it is the manual check's to confirm by reading the palette.
+ */
+async function checkPairingIsHiddenWhereItCannotHappen(extension: vscode.Extension<unknown>): Promise<void> {
+	const registered = await vscode.commands.getCommands(true);
+	const bridged = registered.includes('workbench.experimental.requestUsbDevice');
+	const web = describeHost() === 'browser';
+	record(
+		'the device chooser bridge is present exactly where it can be',
+		bridged === web,
+		`${describeHost()} ${bridged ? 'has' : 'has no'} bridge, expected ${web ? 'one' : 'none'}`
+	);
+
+	const palette: { command: string; when?: string }[] =
+		extension.packageJSON?.contributes?.menus?.commandPalette ?? [];
+	const gated = palette.filter((entry) => entry.when === CAN_PAIR_CONTEXT).map((entry) => entry.command);
+
+	// The clause names the key this extension sets, and both pairing commands carry it.
+	const expected = [COMMANDS.connect, COMMANDS.disconnect];
+	record(
+		'pairing is gated on the bridge rather than on the host',
+		expected.every((command) => gated.includes(command)),
+		`gated on ${CAN_PAIR_CONTEXT}: ${gated.join(', ') || 'nothing'}`
+	);
+
+	// Hidden or not, both must resolve: a command contributed and unregistered is an error box.
+	const missing = expected.filter((command) => !registered.includes(command));
+	record(
+		'both pairing commands resolve on this host',
+		missing.length === 0,
+		missing.length ? `missing: ${missing.join(', ')}` : expected.join(', ')
 	);
 }
 

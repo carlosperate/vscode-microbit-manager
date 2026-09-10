@@ -4,6 +4,8 @@
  * what stop the two drifting apart.
  */
 export const COMMANDS = {
+	connect: 'bbcmicrobit-manager.connect',
+	disconnect: 'bbcmicrobit-manager.disconnect',
 	flashHexFile: 'bbcmicrobit-manager.flashHexFile',
 	openTerminal: 'bbcmicrobit-manager.openTerminal',
 	/** The status bar item's action, so it is hidden from the palette and from itself. */
@@ -29,3 +31,11 @@ export const CONTAINER_ID = 'bbcmicrobit';
 
 /** The fallback panel: welcome content over a tree that stays empty. */
 export const FALLBACK_VIEW_ID = 'bbcmicrobit-manager.fallback';
+
+/**
+ * Set once this host is known to be able to authorise a board, and read by the
+ * manifest to keep Connect and Disconnect out of the palette where it cannot.
+ * A capability and not a host: a web workbench that stopped bridging the device
+ * chooser would hide them too, which is the right answer there as well.
+ */
+export const CAN_PAIR_CONTEXT = 'bbcmicrobit-manager.canPair';

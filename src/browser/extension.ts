@@ -7,9 +7,27 @@ import type { MicrobitManagerApi } from '../../api';
 import type * as vscode from 'vscode';
 
 import { activateHost } from '../activate';
+import { connect, disconnect } from '../commands/board';
+import { COMMANDS } from '../config';
+import { boardAttached, createBoard, shutdownBoard } from '../usb/connection';
 
 export function activate(context: vscode.ExtensionContext): MicrobitManagerApi {
-	return activateHost(context, { entry: 'browser', commands: {} });
+	return activateHost(context, {
+		entry: 'browser',
+		commands: {
+			[COMMANDS.connect]: connect,
+			[COMMANDS.disconnect]: disconnect,
+		},
+		start: createBoard,
+		boardAttached,
+	});
 }
 
-export function deactivate(): void {}
+/**
+ * Awaited by VS Code, which is why the board is handed back here rather than
+ * from a subscription: `dispose()` is synchronous and cannot see an asynchronous
+ * disconnect through before the worker goes away.
+ */
+export function deactivate(): Promise<void> {
+	return shutdownBoard();
+}

@@ -69,6 +69,16 @@
     ],
     "commands": [
       {
+        "command": "bbcmicrobit-manager.connect",
+        "title": "Connect",
+        "category": "BBC micro:bit Manager"
+      },
+      {
+        "command": "bbcmicrobit-manager.disconnect",
+        "title": "Disconnect",
+        "category": "BBC micro:bit Manager"
+      },
+      {
         "command": "bbcmicrobit-manager.flashHexFile",
         "title": "Flash Hex File",
         "category": "BBC micro:bit Manager"
@@ -89,6 +99,14 @@
         {
           "command": "bbcmicrobit-manager.showMenu",
           "when": "false"
+        },
+        {
+          "command": "bbcmicrobit-manager.connect",
+          "when": "bbcmicrobit-manager.canPair"
+        },
+        {
+          "command": "bbcmicrobit-manager.disconnect",
+          "when": "bbcmicrobit-manager.canPair"
         }
       ]
     }
@@ -116,5 +134,8 @@
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "@microbit/microbit-connection": "1.0.0"
   }
 }

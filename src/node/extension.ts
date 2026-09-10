@@ -5,12 +5,24 @@
  * the drive it mounts instead.
  */
 import type { MicrobitManagerApi } from '../../api';
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 
 import { activateHost } from '../activate';
+import { pairingIsNotNeeded } from '../commands/board';
+import { COMMANDS } from '../config';
+import { createIdleStatusBar } from '../ui/statusbar';
 
 export function activate(context: vscode.ExtensionContext): MicrobitManagerApi {
-	return activateHost(context, { entry: 'node', commands: {} });
+	return activateHost(context, {
+		entry: 'node',
+		commands: {
+			// Hidden from the palette and the menu here, but every contributed command must resolve.
+			[COMMANDS.connect]: pairingIsNotNeeded,
+			[COMMANDS.disconnect]: pairingIsNotNeeded,
+		},
+		// No `boardAttached`, so the menu offers neither Connect nor Disconnect.
+		start: (context) => context.subscriptions.push(createIdleStatusBar()),
+	});
 }
 
 export function deactivate(): void {}
