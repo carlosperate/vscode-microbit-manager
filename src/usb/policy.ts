@@ -42,7 +42,12 @@ export const boardStillMissing = (status: ConnectionStatus): boolean =>
 	status === ConnectionStatus.NoAuthorizedDevice;
 
 /** What Disconnect can do, given what is happening. Each answer is worded by the adapter. */
-export type DisconnectAction = 'nothing-connected' | 'wait-for-connect' | 'already-releasing' | 'release';
+export type DisconnectAction =
+	| 'nothing-connected'
+	| 'wait-for-connect'
+	| 'already-releasing'
+	| 'held-by-terminal'
+	| 'release';
 
 /**
  * A connect in flight cannot be called off, because the chooser is the host's
@@ -55,8 +60,12 @@ export function disconnectAction(state: {
 	status: ConnectionStatus;
 	connecting: boolean;
 	releasing: boolean;
+	heldByTerminal: boolean;
 }): DisconnectAction {
 	if (state.connecting) return 'wait-for-connect';
 	if (state.releasing) return 'already-releasing';
-	return isIdle(state.status) ? 'nothing-connected' : 'release';
+	if (!isIdle(state.status)) return 'release';
+	// Last, and only with nothing of ours to give back: a connection of our own is
+	// the one that can actually be released, and it outranks a port we never held.
+	return state.heldByTerminal ? 'held-by-terminal' : 'nothing-connected';
 }

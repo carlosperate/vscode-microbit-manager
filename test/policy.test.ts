@@ -35,14 +35,14 @@ describe('when a lost board is worth chasing', () => {
 
 describe('what Disconnect does', () => {
 	it('hands the board back when there is one', () => {
-		expect(disconnectAction({ releasing: false, status: ConnectionStatus.Connected, connecting: false })).toBe('release');
+		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.Connected, connecting: false })).toBe('release');
 	});
 
 	it('says so when there is nothing connected', () => {
-		expect(disconnectAction({ releasing: false, status: ConnectionStatus.NoAuthorizedDevice, connecting: false })).toBe(
+		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.NoAuthorizedDevice, connecting: false })).toBe(
 			'nothing-connected'
 		);
-		expect(disconnectAction({ releasing: false, status: ConnectionStatus.Disconnected, connecting: false })).toBe('nothing-connected');
+		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.Disconnected, connecting: false })).toBe('nothing-connected');
 	});
 
 	/**
@@ -50,16 +50,59 @@ describe('what Disconnect does', () => {
 	 * status alone would start a second one over the top of the first.
 	 */
 	it('joins a release already running rather than starting another', () => {
-		expect(disconnectAction({ status: ConnectionStatus.Connected, connecting: false, releasing: true })).toBe(
+		expect(disconnectAction({ heldByTerminal: false, status: ConnectionStatus.Connected, connecting:false, releasing: true })).toBe(
 			'already-releasing'
 		);
 	});
 
 	/** A connect in flight outranks it: that one cannot be called off at all. */
 	it('answers for the connect first when both are in flight', () => {
-		expect(disconnectAction({ status: ConnectionStatus.Connected, connecting: true, releasing: true })).toBe(
+		expect(disconnectAction({ heldByTerminal: false, status: ConnectionStatus.Connected, connecting:true, releasing: true })).toBe(
 			'wait-for-connect'
 		);
+	});
+
+	/**
+	 * The Web Serial route: a terminal has the port and there is no connection of
+	 * ours to release. It comes last, because a connection we can actually hand
+	 * back outranks a port we never held.
+	 */
+	it('names the terminal when it is the only thing holding the board', () => {
+		expect(
+			disconnectAction({
+				status: ConnectionStatus.NoAuthorizedDevice,
+				connecting: false,
+				releasing: false,
+				heldByTerminal: true,
+			})
+		).toBe('held-by-terminal');
+	});
+
+	it('releases its own connection rather than pointing at a terminal', () => {
+		expect(
+			disconnectAction({
+				status: ConnectionStatus.Connected,
+				connecting: false,
+				releasing: false,
+				heldByTerminal: true,
+			})
+		).toBe('release');
+	});
+
+	/**
+	 * The press that this replaced: a connect in flight reads as idle, because USB
+	 * never reports `Connecting`, so a terminal holding the port must not swallow
+	 * the promise to hand the board back once the chooser is done with.
+	 */
+	it('still promises the board back mid-connect while a terminal holds it', () => {
+		expect(
+			disconnectAction({
+				status: ConnectionStatus.NoAuthorizedDevice,
+				connecting: true,
+				releasing: false,
+				heldByTerminal: true,
+			})
+		).toBe('wait-for-connect');
 	});
 
 	/**
@@ -67,10 +110,10 @@ describe('what Disconnect does', () => {
 	 * a connect in flight is promised back rather than appearing to do nothing.
 	 */
 	it('promises the board back rather than racing a connect', () => {
-		expect(disconnectAction({ releasing: false, status: ConnectionStatus.NoAuthorizedDevice, connecting: true })).toBe(
+		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.NoAuthorizedDevice, connecting: true })).toBe(
 			'wait-for-connect'
 		);
-		expect(disconnectAction({ releasing: false, status: ConnectionStatus.Connected, connecting: true })).toBe('wait-for-connect');
+		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.Connected, connecting: true })).toBe('wait-for-connect');
 	});
 });
 

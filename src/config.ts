@@ -33,6 +33,13 @@ export const CONTAINER_ID = 'bbcmicrobit';
 export const FALLBACK_VIEW_ID = 'bbcmicrobit-manager.fallback';
 
 /**
+ * The Open VSX companion that owns every serial terminal, on both hosts. A pack
+ * member rather than a dependency, so a user may remove it: `serial/provider.ts`
+ * explains its absence instead of VS Code refusing the uninstall.
+ */
+export const SERIAL_MONITOR_EXTENSION = 'eclipse-cdt.serial-monitor';
+
+/**
  * Set once this host is known to be able to authorise a board, and read by the
  * manifest to keep Connect and Disconnect out of the palette where it cannot.
  * A capability and not a host: a web workbench that stopped bridging the device

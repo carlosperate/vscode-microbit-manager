@@ -9,7 +9,9 @@ import { createApi } from './api';
 import { showMenu } from './commands/showMenu';
 import { COMMANDS, PRODUCT, type CommandId } from './config';
 import { createLog, log } from './log';
+import { createSerialMonitor } from './serial/eclipse';
 import { createFallbackView } from './ui/fallback';
+import type { BoardState } from './ui/menu';
 
 export type CommandHandler = (context: vscode.ExtensionContext, ...args: unknown[]) => Promise<void>;
 
@@ -22,13 +24,14 @@ export interface Host {
 	/** Runs once the output channel exists. */
 	start?(context: vscode.ExtensionContext): void;
 	/** Absent where nothing can be paired, which drops both menu entries. */
-	boardAttached?(): boolean;
+	boardState?(): BoardState;
 }
 
 export function activateHost(context: vscode.ExtensionContext, host: Host): MicrobitManagerApi {
 	createLog(context);
 	log(`Extension activated, ${host.entry} entry`);
 
+	createSerialMonitor(context);
 	createFallbackView(context);
 	// The status bar item belongs to whichever host built it: on web it tracks a
 	// live connection, so it is created with one rather than beside it.
@@ -36,7 +39,7 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 
 	const implemented: Partial<Record<CommandId, CommandHandler>> = {
 		...host.commands,
-		[COMMANDS.showMenu]: (forMenu) => showMenu(forMenu, host.boardAttached?.()),
+		[COMMANDS.showMenu]: (forMenu) => showMenu(forMenu, host.boardState?.() ?? 'unpairable'),
 	};
 
 	// Manifest titles keep stub notifications in sync with the command palette.

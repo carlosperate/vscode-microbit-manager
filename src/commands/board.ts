@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { PRODUCT } from '../config';
+import { hasSerialSession } from '../serial/eclipse';
 import { connectBoard, disconnectBoard } from '../usb/connection';
 
 /**
@@ -12,9 +13,16 @@ export async function connect(): Promise<void> {
 	if (await connectBoard()) void vscode.window.showInformationMessage(`${PRODUCT}: the micro:bit is connected.`);
 }
 
-/** Hands the board back, so another window or the MICROBIT drive can have it. */
+/**
+ * Hands the board back, so another window or the MICROBIT drive can have it.
+ *
+ * A Web Serial terminal is the exception: the port belongs to the companion that
+ * opened it, whose API can open, reveal, pause and resume a terminal but never
+ * close one. Saying nothing is connected there would be untrue in front of a
+ * terminal that is plainly talking to a board, so it names what holds it.
+ */
 export async function disconnect(): Promise<void> {
-	await disconnectBoard();
+	await disconnectBoard(hasSerialSession('webserial'));
 }
 
 /**

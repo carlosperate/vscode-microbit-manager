@@ -36,6 +36,9 @@
   "extensionKind": [
     "ui"
   ],
+  "extensionPack": [
+    "eclipse-cdt.serial-monitor"
+  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": true
@@ -121,8 +124,11 @@
     "test:integration": "npm run build && npm run build:integration && vscode-test-web --quality stable --headless --port=3001 --extensionDevelopmentPath=. --extensionTestsPath=./test/integration/dist/index.js ./test/workspace",
     "test:integration:desktop": "npm run build && npm run build:integration && node config/desktop.mjs --test",
     "serve": "npm run build && vscode-test-web --quality stable --browser=none --port=3000 --extensionDevelopmentPath=. ./test/workspace",
+    "serve:extra-extensions": "npm run build && node config/companions.mjs --browser=none --port=3000",
     "chrome": "npm run build && vscode-test-web --quality stable --browser=chromium --extensionDevelopmentPath=. ./test/workspace",
-    "desktop": "npm run build && node config/desktop.mjs"
+    "chrome:extra-extensions": "npm run build && node config/companions.mjs --browser=chromium",
+    "desktop": "npm run build && node config/desktop.mjs",
+    "desktop:extra-extensions": "npm run desktop -- --extra-extensions"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

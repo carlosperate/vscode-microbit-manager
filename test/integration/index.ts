@@ -1,6 +1,13 @@
 import * as vscode from 'vscode';
 
-import { CAN_PAIR_CONTEXT, COMMANDS, CONTAINER_ID, FALLBACK_VIEW_ID, PRODUCT } from '../../src/config';
+import {
+	CAN_PAIR_CONTEXT,
+	COMMANDS,
+	CONTAINER_ID,
+	FALLBACK_VIEW_ID,
+	PRODUCT,
+	SERIAL_MONITOR_EXTENSION,
+} from '../../src/config';
 import { API_VERSION } from '../../src/api';
 
 /**
@@ -41,6 +48,7 @@ export async function run(): Promise<void> {
 	checkEveryCommandSaysWhoOwnsIt(extension);
 	await checkContributedCommandsResolve(extension);
 	await checkPairingIsHiddenWhereItCannotHappen(extension);
+	await checkTheSerialCompanionIsOfferedNotRequired(extension);
 	await checkTheStubsAnswerRatherThanThrow();
 
 	summarise();
@@ -219,6 +227,52 @@ async function checkPairingIsHiddenWhereItCannotHappen(extension: vscode.Extensi
 		'both pairing commands resolve on this host',
 		missing.length === 0,
 		missing.length ? `missing: ${missing.join(', ')}` : expected.join(', ')
+	);
+}
+
+/**
+ * The serial terminal belongs to a companion extension, offered as a pack member
+ * and never required: a dependency would make VS Code refuse to uninstall it,
+ * trading a good message for a blocked action. Running the command without it
+ * has to explain itself rather than throw, which is the half a user meets.
+ */
+async function checkTheSerialCompanionIsOfferedNotRequired(extension: vscode.Extension<unknown>): Promise<void> {
+	const pack: string[] = extension.packageJSON?.extensionPack ?? [];
+	const dependencies: string[] = extension.packageJSON?.extensionDependencies ?? [];
+	record(
+		'the serial companion is packed, not depended on',
+		pack.includes(SERIAL_MONITOR_EXTENSION) && !dependencies.includes(SERIAL_MONITOR_EXTENSION),
+		`pack: ${pack.join(', ') || 'nothing'}; dependencies: ${dependencies.join(', ') || 'none'}`
+	);
+
+	const installed = vscode.extensions.getExtension(SERIAL_MONITOR_EXTENSION) !== undefined;
+	// Only in the Node host. On web the route reaches for the WebUSB port first,
+	// so running it opens a device chooser rather than meeting the companion, and
+	// leaves a connect in flight for every check after this one.
+	if (describeHost() === 'browser') {
+		record(
+			'the serial terminal answers rather than throwing',
+			true,
+			'skipped on web, where the route asks for a board before it asks for the companion'
+		);
+		return;
+	}
+
+	// Never awaited to completion: without the companion this ends at an error
+	// notification carrying an action, and an error notification waits for a click
+	// that a headless run will never make. What is being asserted is that it does
+	// not reject, so a pause long enough to see a rejection is the whole check.
+	const outcome = await Promise.race([
+		vscode.commands.executeCommand(COMMANDS.openTerminal).then(
+			() => 'returned',
+			(error: unknown) => `rejected: ${String(error)}`
+		),
+		new Promise<string>((resolve) => setTimeout(() => resolve('still offering its answer'), 3000)),
+	]);
+	record(
+		'the serial terminal answers rather than throwing',
+		!outcome.startsWith('rejected'),
+		`companion ${installed ? 'installed' : 'absent'}, ${outcome}`
 	);
 }
 

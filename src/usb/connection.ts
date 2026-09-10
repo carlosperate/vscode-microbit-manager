@@ -22,6 +22,9 @@ import {
 	NOT_A_MICROBIT,
 	WRONG_BOARD,
 } from '../ui/errors';
+import { revealSerialSession } from '../serial/eclipse';
+import { SerialWriteGate } from '../serial/transport';
+import type { SerialTransport } from '../serial/types';
 import { createStatusBar, type StatusBar } from '../ui/statusbar';
 import { connectToBoard, isMicrobit, MICROBIT_FILTER, type Outcome, type UsbIdentity } from './connect';
 import { boardStillMissing, disconnectAction, isIdle, mayJoinAttempt, shouldRecover } from './policy';
@@ -42,6 +45,7 @@ export const REQUEST_USB_DEVICE = 'workbench.experimental.requestUsbDevice';
 const RESETTLE_MS = 1500;
 
 let connection: MicrobitUSBConnection | undefined;
+let serialTransport: SerialWriteGate | undefined;
 let statusBar: StatusBar | undefined;
 let recovering = false;
 
@@ -65,13 +69,25 @@ let attemptMayPair = false;
  */
 let releasing: Promise<void> | undefined;
 
-/** One release at a time, and everything that gives the board back goes through it. */
+/**
+ * One release at a time, and everything that gives the board back goes through
+ * it. Terminal input is held and drained around the whole of it: the terminal
+ * echoes every keystroke itself, so anything accepted while the board is going
+ * away stays on screen looking like it was sent.
+ */
 function releaseBoard(board: MicrobitUSBConnection): Promise<void> {
-	releasing ??= board.disconnect().finally(() => {
+	releasing ??= withSerialWritesBlocked(() => board.disconnect()).finally(() => {
 		releasing = undefined;
 	});
 	return releasing;
 }
+
+/**
+ * Holds terminal input out of the board for the length of an operation, draining
+ * whatever was accepted before it. Nothing is held where no terminal is open.
+ */
+const withSerialWritesBlocked = <T>(operation: () => Promise<T>): Promise<T> =>
+	serialTransport ? serialTransport.withWritesBlocked(operation) : operation();
 
 /** A finished attempt, either way, since callers word failure differently. */
 type Attempted = { outcome: Outcome } | { error: unknown };
@@ -110,11 +126,36 @@ export function createBoard(context: vscode.ExtensionContext): void {
 	board.addEventListener('status', onStatus);
 	board.addEventListener('beforerequestdevice', chooserWasReached);
 
+	// The terminal sees the board only through this: reads come off the connection's
+	// own events, and writes are the thing a release has to hold and drain.
+	const transport = new SerialWriteGate(
+		{
+			onData: (listener) => {
+				const wrapped = ({ data }: { data: string }) => listener(data);
+				board.addEventListener('serialdata', wrapped);
+				return () => board.removeEventListener('serialdata', wrapped);
+			},
+			onDisconnect: (listener) => {
+				const wrapped = () => {
+					if (!boardAttached()) listener();
+				};
+				board.addEventListener('status', wrapped);
+				return () => board.removeEventListener('status', wrapped);
+			},
+			write: async (data) => {
+				if (isConnected(board)) await board.serialWrite(data);
+			},
+		},
+		(characters) => log(`${characters} character(s) typed while the micro:bit was busy were discarded`)
+	);
+
 	connection = board;
+	serialTransport = transport;
 	statusBar = bar;
 	context.subscriptions.push({
 		dispose: () => {
 			connection = undefined;
+			serialTransport = undefined;
 			statusBar = undefined;
 			board.removeEventListener('status', onStatus);
 			board.removeEventListener('beforerequestdevice', chooserWasReached);
@@ -239,16 +280,26 @@ export async function connectBoard(): Promise<boolean> {
 	return report(board, attempted.outcome);
 }
 
-export async function disconnectBoard(): Promise<void> {
+export async function disconnectBoard(heldByTerminal: boolean): Promise<void> {
 	const board = connection;
 	if (!board) {
-		void vscode.window.showInformationMessage(`${PRODUCT}: no micro:bit is connected.`);
+		await reportNothingOfOurs(heldByTerminal);
 		return;
 	}
 
-	switch (disconnectAction({ status: board.status, connecting: attempt !== undefined, releasing: releasing !== undefined })) {
+	switch (
+		disconnectAction({
+			status: board.status,
+			connecting: attempt !== undefined,
+			releasing: releasing !== undefined,
+			heldByTerminal,
+		})
+	) {
 		case 'nothing-connected':
 			void vscode.window.showInformationMessage(`${PRODUCT}: no micro:bit is connected.`);
+			return;
+		case 'held-by-terminal':
+			await reportNothingOfOurs(true);
 			return;
 		case 'wait-for-connect':
 			releaseWhenIdle = true;
@@ -267,11 +318,30 @@ export async function disconnectBoard(): Promise<void> {
 }
 
 /**
+ * With no connection of ours, a Web Serial terminal may still hold the port. It
+ * is revealed rather than described, both because that is the terminal the user
+ * has to close and because nothing else reports one they closed already: a
+ * handle that no longer resolves is how that is noticed.
+ */
+async function reportNothingOfOurs(heldByTerminal: boolean): Promise<void> {
+	if (heldByTerminal && (await revealSerialSession('webserial'))) {
+		void vscode.window.showInformationMessage(
+			`${PRODUCT}: the serial terminal holds this micro:bit. Close that terminal to release it.`
+		);
+		return;
+	}
+	void vscode.window.showInformationMessage(`${PRODUCT}: no micro:bit is connected.`);
+}
+
+/**
  * Whether there is a board to hand back, which decides Connect against
  * Disconnect. Read from the library each time: a copy of ours would drift the
  * first time a cable came out between one menu and the next.
  */
 export const boardAttached = (): boolean => connection !== undefined && !isIdle(connection.status);
+
+/** The terminal sees only the serial operations coordinated by this module. */
+export const getSerialTransport = (): SerialTransport | undefined => (boardAttached() ? serialTransport : undefined);
 
 /** Which micro:bit is on the other end, which decides the image a hex is built from. */
 export const boardVersion = (): BoardVersion | undefined => (connection ? versionOf(connection) : undefined);

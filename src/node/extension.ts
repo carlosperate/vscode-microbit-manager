@@ -10,17 +10,19 @@ import * as vscode from 'vscode';
 import { activateHost } from '../activate';
 import { pairingIsNotNeeded } from '../commands/board';
 import { COMMANDS } from '../config';
+import { openTerminal } from './terminal';
 import { createIdleStatusBar } from '../ui/statusbar';
 
 export function activate(context: vscode.ExtensionContext): MicrobitManagerApi {
 	return activateHost(context, {
 		entry: 'node',
 		commands: {
+			[COMMANDS.openTerminal]: openTerminal,
 			// Hidden from the palette and the menu here, but every contributed command must resolve.
 			[COMMANDS.connect]: pairingIsNotNeeded,
 			[COMMANDS.disconnect]: pairingIsNotNeeded,
 		},
-		// No `boardAttached`, so the menu offers neither Connect nor Disconnect.
+		// No `boardState`, so the menu offers neither Connect nor Disconnect.
 		start: (context) => context.subscriptions.push(createIdleStatusBar()),
 	});
 }
