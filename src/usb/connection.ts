@@ -3,7 +3,12 @@
  * needs a board goes through. Module level for the same reason the output
  * channel is: a command handler has no other way to reach it.
  */
-import { ConnectionStatus, type BoardVersion } from '@microbit/microbit-connection';
+import {
+	ConnectionStatus,
+	type BoardVersion,
+	type FlashDataSource,
+	type ProgressCallback,
+} from '@microbit/microbit-connection';
 import {
 	createUSBConnection,
 	DeviceSelectionMode,
@@ -14,6 +19,7 @@ import * as vscode from 'vscode';
 import { CAN_PAIR_CONTEXT, PRODUCT } from '../config';
 import { log } from '../log';
 import {
+	BOARD_CHANGED,
 	CHOOSER_REFUSED,
 	describeError,
 	explainDevice,
@@ -61,6 +67,20 @@ let releaseWhenIdle = false;
 
 /** The terms the attempt in flight was started on, which decide who may join it. */
 let attemptMayPair = false;
+
+/**
+ * The flash in flight. Taking the device away during one leaves the board halted
+ * part-written, and the library's own cleanup dereferences the device it no
+ * longer has, so everything that could disconnect has to see this.
+ */
+let writing: Promise<boolean> | undefined;
+
+/**
+ * How much of a flash has to pass before the library calls back again. Its
+ * default of 0.0025 is about 400 crossings of the worker boundary for a bar
+ * nobody can read that fast; this gives 50 and a smooth one.
+ */
+const PROGRESS_STEP = 0.02;
 
 /**
  * The release in flight. The library sets `Disconnected` only once the device is
@@ -121,7 +141,10 @@ export function createBoard(context: vscode.ExtensionContext): void {
 
 	const onStatus = ({ status, previousStatus }: { status: ConnectionStatus; previousStatus: ConnectionStatus }) => {
 		bar.update(status, versionOf(board));
-		if (shouldRecover(status, previousStatus)) void recover(board);
+		// Checked here rather than inside `recover`, which waits before it looks: a
+		// cable pulled mid-flash reports its own failure and is already unwinding,
+		// and a second message plus a reconnect racing that unwind helps nobody.
+		if (shouldRecover(status, previousStatus) && !writing) void recover(board);
 	};
 	board.addEventListener('status', onStatus);
 	board.addEventListener('beforerequestdevice', chooserWasReached);
@@ -221,6 +244,8 @@ export async function shutdownBoard(): Promise<void> {
 		releaseWhenIdle = false;
 		await attempt.then(undefined, () => undefined);
 	}
+	// Taking the device back mid-flash halts the board part-programmed.
+	if (writing) await writing.catch(() => undefined);
 	if (isIdle(board.status)) return;
 
 	try {
@@ -290,11 +315,17 @@ export async function disconnectBoard(heldByTerminal: boolean): Promise<void> {
 	switch (
 		disconnectAction({
 			status: board.status,
+			flashing: writing !== undefined,
 			connecting: attempt !== undefined,
 			releasing: releasing !== undefined,
 			heldByTerminal,
 		})
 	) {
+		case 'wait-for-flash':
+			void vscode.window.showWarningMessage(
+				`${PRODUCT}: copying to the micro:bit right now. Wait for that to finish before disconnecting.`
+			);
+			return;
 		case 'nothing-connected':
 			void vscode.window.showInformationMessage(`${PRODUCT}: no micro:bit is connected.`);
 			return;
@@ -343,12 +374,74 @@ export const boardAttached = (): boolean => connection !== undefined && !isIdle(
 /** The terminal sees only the serial operations coordinated by this module. */
 export const getSerialTransport = (): SerialTransport | undefined => (boardAttached() ? serialTransport : undefined);
 
-/** Which micro:bit is on the other end, which decides the image a hex is built from. */
-export const boardVersion = (): BoardVersion | undefined => (connection ? versionOf(connection) : undefined);
+/**
+ * Which micro:bit is on the other end, which decides the image a hex is built
+ * from. The library keeps the version after the device has gone, so asking it
+ * alone has a flash skip the connect it needed and refuse the board as changed.
+ */
+export const boardVersion = (): BoardVersion | undefined =>
+	connection && boardAttached() && !releasing ? versionOf(connection) : undefined;
 
 /** Which physical board is on the other end, so a same-version swap is still visible. */
 export const boardSerialNumber = (): string | undefined =>
 	(connection ? connection.getDevice()?.serialNumber : undefined) ?? undefined;
+
+/** The board a hex was built for, checked again immediately before it is sent. */
+export interface ExpectedBoard {
+	version: BoardVersion;
+	serialNumber: string | undefined;
+}
+
+/**
+ * Writes a hex to the board, refusing first if it is no longer `expected`.
+ * `source` is only asked for data once the target is halted, so this check, like
+ * everything else that can refuse, has to run before `flash()` is called at all.
+ */
+export function flashBoard(
+	expected: ExpectedBoard,
+	source: FlashDataSource,
+	progress: ProgressCallback
+): Promise<boolean> {
+	const board = connection;
+	// Silent about `writing`: a second flash is turned away before it reaches here,
+	// with the message, so anything arriving during one is a defect rather than a user.
+	if (!board || writing) return Promise.resolve(false);
+
+	if (!matchesExpected(board, expected)) {
+		warn(BOARD_CHANGED);
+		return Promise.resolve(false);
+	}
+
+	writing = write(board, source, progress).finally(() => {
+		writing = undefined;
+	});
+	return writing;
+}
+
+/** No serial number on either side means unconfirmable, not mismatched, same as `connect.ts`. */
+function matchesExpected(board: MicrobitUSBConnection, expected: ExpectedBoard): boolean {
+	if (!isConnected(board)) return false;
+	if (versionOf(board) !== expected.version) return false;
+	if (expected.serialNumber && board.getDevice()?.serialNumber !== expected.serialNumber) return false;
+	return true;
+}
+
+async function write(
+	board: MicrobitUSBConnection,
+	source: FlashDataSource,
+	progress: ProgressCallback
+): Promise<boolean> {
+	try {
+		await withSerialWritesBlocked(() =>
+			board.flash(source, { partial: true, progress, minimumProgressIncrement: PROGRESS_STEP })
+		);
+		return true;
+	} catch (error) {
+		log(`The flash failed: ${describeError(error)}`);
+		warn(explainDevice(error));
+		return false;
+	}
+}
 
 /**
  * Whether this host can talk to USB at all. The library owns the probe: its

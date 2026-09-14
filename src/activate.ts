@@ -2,10 +2,11 @@
  * Everything both entry points do the same way. The two hosts reach a board by
  * unrelated means, so the commands are the seam and everything else sits above.
  */
-import type { MicrobitManagerApi } from '../api';
+import type { BoardInfo, HexSource, MicrobitManagerApi } from '../api';
 import * as vscode from 'vscode';
 
 import { createApi } from './api';
+import { flashHexFile } from './commands/flashFile';
 import { showMenu } from './commands/showMenu';
 import { COMMANDS, PRODUCT, type CommandId } from './config';
 import { createLog, log } from './log';
@@ -14,6 +15,15 @@ import { createFallbackView } from './ui/fallback';
 import type { BoardState } from './ui/menu';
 
 export type CommandHandler = (context: vscode.ExtensionContext, ...args: unknown[]) => Promise<void>;
+
+export type FlashHex = (hex: HexSource, options?: { expect?: BoardInfo }) => Promise<boolean>;
+
+/** What only a host can do with a board, which is everything the API is about. */
+export interface BoardAccess {
+	connect(): Promise<BoardInfo | undefined>;
+	board(): BoardInfo | undefined;
+	flashHex: FlashHex;
+}
 
 export type Entry = 'browser' | 'node';
 
@@ -25,6 +35,8 @@ export interface Host {
 	start?(context: vscode.ExtensionContext): void;
 	/** Absent where nothing can be paired, which drops both menu entries. */
 	boardState?(): BoardState;
+	/** How this host reaches a board, which is what the exported API is built from. */
+	access: BoardAccess;
 }
 
 export function activateHost(context: vscode.ExtensionContext, host: Host): MicrobitManagerApi {
@@ -37,9 +49,15 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 	// live connection, so it is created with one rather than beside it.
 	host.start?.(context);
 
+	// One object for the command and for the API, so a mode and a button cannot
+	// start two flashes between them.
+	const access: BoardAccess = { ...host.access, flashHex: oneAtATime(host.access.flashHex) };
+
 	const implemented: Partial<Record<CommandId, CommandHandler>> = {
 		...host.commands,
 		[COMMANDS.showMenu]: (forMenu) => showMenu(forMenu, host.boardState?.() ?? 'unpairable'),
+		// Shared, because the only host-specific part of it is the write at the end.
+		[COMMANDS.flashHexFile]: flashHexFile(access.flashHex),
 	};
 
 	// Manifest titles keep stub notifications in sync with the command palette.
@@ -64,7 +82,30 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 		);
 	}
 
-	return createApi();
+	return createApi(access);
+}
+
+/**
+ * One flash at a time, whoever asked: the button, the Explorer, or a mode
+ * through the API. Both hosts take a board away for the length of one, and
+ * neither can be started again part way through, so the rule and the sentence
+ * that explains it live here rather than once per host.
+ */
+function oneAtATime(flashHex: FlashHex): FlashHex {
+	let flashing: Promise<boolean> | undefined;
+	return (hex, options) => {
+		// Set before anything is awaited, or a double click gets past it.
+		if (flashing) {
+			void vscode.window.showInformationMessage(
+				`${PRODUCT}: the micro:bit is still being programmed. Wait for that to finish before flashing again.`
+			);
+			return Promise.resolve(false);
+		}
+		flashing = flashHex(hex, options).finally(() => {
+			flashing = undefined;
+		});
+		return flashing;
+	};
 }
 
 function contributedTitles(context: vscode.ExtensionContext): Map<string, string> {

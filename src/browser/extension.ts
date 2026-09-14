@@ -12,6 +12,7 @@ import { openTerminal } from '../commands/openTerminal';
 import { COMMANDS } from '../config';
 import { hasSerialSession } from '../serial/eclipse';
 import { boardAttached, createBoard, shutdownBoard } from '../usb/connection';
+import { board, connect as connectBoard, flashHex } from './flash';
 
 export function activate(context: vscode.ExtensionContext): MicrobitManagerApi {
 	return activateHost(context, {
@@ -21,6 +22,7 @@ export function activate(context: vscode.ExtensionContext): MicrobitManagerApi {
 			[COMMANDS.disconnect]: disconnect,
 			[COMMANDS.openTerminal]: openTerminal,
 		},
+		access: { connect: connectBoard, board, flashHex },
 		start: createBoard,
 		// A Web Serial terminal holds the board without this extension being connected
 		// to it, and the menu has to offer a Disconnect that can say so.

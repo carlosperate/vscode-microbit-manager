@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { activateHost } from '../activate';
 import { pairingIsNotNeeded } from '../commands/board';
 import { COMMANDS } from '../config';
+import { board, connect, flashHex } from './flash';
 import { openTerminal } from './terminal';
 import { createIdleStatusBar } from '../ui/statusbar';
 
@@ -22,6 +23,7 @@ export function activate(context: vscode.ExtensionContext): MicrobitManagerApi {
 			[COMMANDS.connect]: pairingIsNotNeeded,
 			[COMMANDS.disconnect]: pairingIsNotNeeded,
 		},
+		access: { connect, board, flashHex },
 		// No `boardState`, so the menu offers neither Connect nor Disconnect.
 		start: (context) => context.subscriptions.push(createIdleStatusBar()),
 	});

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { API_VERSION } from '../src/api';
+import { API_VERSION } from '../src/config';
 import apiPackage from '../api/package.json';
 
 describe('the API version', () => {

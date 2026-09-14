@@ -44,6 +44,7 @@ export const boardStillMissing = (status: ConnectionStatus): boolean =>
 /** What Disconnect can do, given what is happening. Each answer is worded by the adapter. */
 export type DisconnectAction =
 	| 'nothing-connected'
+	| 'wait-for-flash'
 	| 'wait-for-connect'
 	| 'already-releasing'
 	| 'held-by-terminal'
@@ -58,10 +59,14 @@ export type DisconnectAction =
  */
 export function disconnectAction(state: {
 	status: ConnectionStatus;
+	flashing: boolean;
 	connecting: boolean;
 	releasing: boolean;
 	heldByTerminal: boolean;
 }): DisconnectAction {
+	// First of all, and it is the one answer that is about damage rather than
+	// tidiness: taking the device away mid-write leaves a board halted part-written.
+	if (state.flashing) return 'wait-for-flash';
 	if (state.connecting) return 'wait-for-connect';
 	if (state.releasing) return 'already-releasing';
 	if (!isIdle(state.status)) return 'release';

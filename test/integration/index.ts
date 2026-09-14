@@ -8,7 +8,7 @@ import {
 	PRODUCT,
 	SERIAL_MONITOR_EXTENSION,
 } from '../../src/config';
-import { API_VERSION } from '../../src/api';
+import { API_VERSION } from '../../src/config';
 
 /**
  * The integration tests: one bundle on two hosts, `@vscode/test-web` and
@@ -30,7 +30,38 @@ function record(name: string, ok: boolean, detail: string): void {
 	console.log(`[test] ${ok ? 'PASS' : 'FAIL'}  ${name}\n[test]       ${detail}`);
 }
 
+/** Nothing here waits on a person, so a run that stops has reached a prompt it cannot answer. */
+const PATIENCE_SECONDS = 120;
+
+/**
+ * Bounded, and the report is written either way. A command that opens a picker
+ * or a modal stops a headless run dead with nothing on screen and no output, and
+ * the run has to fail saying so rather than hang until something kills it.
+ */
 export async function run(): Promise<void> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const stalled = new Promise<string>((resolve) => {
+		timer = setTimeout(
+			() => resolve(`nothing for ${PATIENCE_SECONDS}s, so a check is waiting on something only a person can do`),
+			PATIENCE_SECONDS * 1000
+		);
+	});
+
+	try {
+		const stall = await Promise.race([checks().then(() => undefined), stalled]);
+		if (stall) record('every check answers without a person', false, stall);
+	} catch (error) {
+		// Recorded rather than thrown, so the checks that did run are still reported,
+		// and cleared either way: a pending timer holds the host open after the run.
+		record('the checks run at all', false, String(error));
+	} finally {
+		clearTimeout(timer);
+	}
+
+	summarise();
+}
+
+async function checks(): Promise<void> {
 	const extension = vscode.extensions.getExtension(EXTENSION_ID);
 	if (!extension) {
 		throw new Error(
@@ -49,9 +80,7 @@ export async function run(): Promise<void> {
 	await checkContributedCommandsResolve(extension);
 	await checkPairingIsHiddenWhereItCannotHappen(extension);
 	await checkTheSerialCompanionIsOfferedNotRequired(extension);
-	await checkTheStubsAnswerRatherThanThrow();
-
-	summarise();
+	checkAHexFileOffersTheFlash(extension);
 }
 
 /**
@@ -95,10 +124,26 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 	const keys = Object.keys(api).sort();
 	const version: unknown = (api as { version?: unknown }).version;
 	const semver = typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version);
+
+	// Exactly these, in both directions: a member the types promise and the object
+	// lacks is a mode calling undefined, and one the object has and the types do not
+	// is a mode using something nothing guarantees will still be there.
+	const declared = ['board', 'commands', 'connect', 'flashHex', 'saveHex', 'version'];
+	const callable = ['board', 'connect', 'flashHex', 'saveHex'].filter(
+		(member) => typeof (api as Record<string, unknown>)[member] !== 'function'
+	);
+	const commands = (api as { commands?: Record<string, unknown> }).commands ?? {};
+	const ids = Object.keys(commands).sort();
+
 	record(
 		name,
-		keys.join() === 'version' && semver && version === API_VERSION,
-		`keys=[${keys.join(', ')}], version=${String(version)}, expected ${API_VERSION}`
+		keys.join() === declared.join() &&
+			callable.length === 0 &&
+			semver &&
+			version === API_VERSION &&
+			ids.join() === 'connect,disconnect,flashHexFile,openTerminal',
+		`keys=[${keys.join(', ')}], commands=[${ids.join(', ')}], version=${String(version)}` +
+			`${callable.length ? `, not functions: ${callable.join(', ')}` : ''}`
 	);
 }
 
@@ -277,18 +322,20 @@ async function checkTheSerialCompanionIsOfferedNotRequired(extension: vscode.Ext
 }
 
 /**
- * A command with no implementation answers with a notification. Running one has
- * to be a no-op a user can recover from, not a rejected promise that the host
- * reports as an extension error.
+ * Right-clicking a hex is the one way in that hands the command a file rather
+ * than asking for one, and a `when` clause that stops matching is a menu item
+ * that silently stops appearing. Asserted rather than run: the flash itself ends
+ * at a picker or a board, and neither answers in a headless run.
  */
-async function checkTheStubsAnswerRatherThanThrow(): Promise<void> {
-	const name = 'an unimplemented command declines rather than throwing';
-	try {
-		await vscode.commands.executeCommand(COMMANDS.flashHexFile);
-		record(name, true, `${COMMANDS.flashHexFile} returned`);
-	} catch (error) {
-		record(name, false, `${COMMANDS.flashHexFile} threw: ${String(error)}`);
-	}
+function checkAHexFileOffersTheFlash(extension: vscode.Extension<unknown>): void {
+	const items: { command: string; when?: string }[] =
+		extension.packageJSON?.contributes?.menus?.['explorer/context'] ?? [];
+	const entry = items.find((item) => item.command === COMMANDS.flashHexFile);
+	record(
+		'a hex file offers the flash on its context menu',
+		entry !== undefined && (entry.when ?? '').includes('.hex'),
+		entry ? `when: ${entry.when ?? 'always, on every file'}` : `${COMMANDS.flashHexFile} is not on explorer/context`
+	);
 }
 
 function summarise(): void {

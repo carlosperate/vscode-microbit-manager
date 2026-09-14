@@ -38,8 +38,20 @@ it.each(BOTH)('%s is CJS, which is what an extension host loads', (which) => {
 	expect(bundleFor(which)).not.toMatch(/^\s*export[\s{]/m);
 });
 
-it.each(BOTH)('%s requires nothing at runtime but vscode', (which) => {
-	expect(required(bundleFor(which))).toEqual(['vscode']);
+it('leaves vscode external in the browser bundle and pulls in nothing else at runtime', () => {
+	expect(required(browser)).toEqual(['vscode']);
+});
+
+/**
+ * Node builtins are the point of the desktop entry, so what is pinned is which
+ * ones. Anything new here is a dependency arriving at the desktop host, and the
+ * list is short enough that adding to it should be a decision rather than a diff.
+ *
+ * `node:child_process` is the one to think twice about: it is here to ask Windows
+ * for its volume names, and nothing else may reach for it.
+ */
+it('pins what the node bundle asks the host for', () => {
+	expect(required(node)).toEqual(['node:child_process', 'node:fs/promises', 'node:os', 'node:util', 'vscode']);
 });
 
 /**

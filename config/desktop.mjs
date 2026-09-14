@@ -184,8 +184,11 @@ if (testing) {
 		`--extensionDevelopmentPath=${root}`,
 		...launchArgs,
 	];
-	// A signal leaves the status null, and an editor that was killed did not succeed.
-	spawn(executable, args, { stdio: 'inherit', env: cleanEnv() }).on('exit', (status, signal) =>
-		process.exit(signal ? 1 : (status ?? 0))
-	);
+	/**
+	 * Exit as the child did. A signal death carries no status, so reporting 0 there would call a
+	 * crash a clean run, and 128 plus the signal is what a shell reports: SIGSEGV reads as 139.
+	 */
+	const exitAs = (status, signal) => process.exit(signal ? 128 + (os.constants.signals[signal] ?? 0) : (status ?? 0));
+
+	spawn(executable, args, { stdio: 'inherit', env: cleanEnv() }).on('exit', exitAs);
 }

@@ -86,8 +86,12 @@ describe('the status bar menu', () => {
 	});
 
 	it('takes the titles the manifest gives, so the menu cannot drift from the palette', () => {
-		const entries = menuCommands([{ command: COMMANDS.flashHexFile, title: 'Flash Hex File' }], [], 'disconnected');
-		expect(entries[0]?.title).toBe('Flash Hex File');
+		const entries = menuCommands(
+			[{ command: COMMANDS.flashHexFile, title: 'Flash hex to micro:bit' }],
+			[],
+			'disconnected'
+		);
+		expect(entries[0]?.title).toBe('Flash hex to micro:bit');
 	});
 
 	it('does not sort the array it was handed', () => {

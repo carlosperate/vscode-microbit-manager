@@ -67,7 +67,7 @@
     "viewsWelcome": [
       {
         "view": "bbcmicrobit-manager.fallback",
-        "contents": "[$(zap) Flash Hex File](command:bbcmicrobit-manager.flashHexFile)\n[$(terminal) Open Serial Terminal](command:bbcmicrobit-manager.openTerminal)"
+        "contents": "[$(zap) Flash hex to micro:bit](command:bbcmicrobit-manager.flashHexFile)\n[$(terminal) Open Serial Terminal](command:bbcmicrobit-manager.openTerminal)"
       }
     ],
     "commands": [
@@ -83,7 +83,7 @@
       },
       {
         "command": "bbcmicrobit-manager.flashHexFile",
-        "title": "Flash Hex File",
+        "title": "Flash hex to micro:bit",
         "category": "BBC micro:bit Manager"
       },
       {
@@ -98,6 +98,13 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "bbcmicrobit-manager.flashHexFile",
+          "when": "resourceExtname =~ /\\.hex$/i",
+          "group": "navigation@100"
+        }
+      ],
       "commandPalette": [
         {
           "command": "bbcmicrobit-manager.showMenu",
@@ -142,6 +149,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "@microbit/microbit-connection": "1.0.0"
+    "@microbit/microbit-connection": "1.0.0",
+    "@microbit/microbit-universal-hex": "0.2.2"
   }
 }

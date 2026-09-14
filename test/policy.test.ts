@@ -34,15 +34,34 @@ describe('when a lost board is worth chasing', () => {
 });
 
 describe('what Disconnect does', () => {
+	/** Defaults for everything a case is not about, so adding a state does not rewrite the file. */
+	const action = (about: Partial<Parameters<typeof disconnectAction>[0]>) =>
+		disconnectAction({
+			status: ConnectionStatus.Connected,
+			flashing: false,
+			connecting: false,
+			releasing: false,
+			heldByTerminal: false,
+			...about,
+		});
+
 	it('hands the board back when there is one', () => {
-		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.Connected, connecting: false })).toBe('release');
+		expect(action({ status: ConnectionStatus.Connected })).toBe('release');
 	});
 
 	it('says so when there is nothing connected', () => {
-		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.NoAuthorizedDevice, connecting: false })).toBe(
-			'nothing-connected'
-		);
-		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.Disconnected, connecting: false })).toBe('nothing-connected');
+		expect(action({ status: ConnectionStatus.NoAuthorizedDevice })).toBe('nothing-connected');
+		expect(action({ status: ConnectionStatus.Disconnected })).toBe('nothing-connected');
+	});
+
+	/**
+	 * Taking the device away mid-write leaves the board halted and part-written, so
+	 * this outranks every other answer including a connect that cannot be called off.
+	 */
+	it('refuses while a flash is running, whatever else is happening', () => {
+		expect(action({ flashing: true })).toBe('wait-for-flash');
+		expect(action({ flashing: true, connecting: true })).toBe('wait-for-flash');
+		expect(action({ flashing: true, releasing: true, heldByTerminal: true })).toBe('wait-for-flash');
 	});
 
 	/**
@@ -50,16 +69,12 @@ describe('what Disconnect does', () => {
 	 * status alone would start a second one over the top of the first.
 	 */
 	it('joins a release already running rather than starting another', () => {
-		expect(disconnectAction({ heldByTerminal: false, status: ConnectionStatus.Connected, connecting:false, releasing: true })).toBe(
-			'already-releasing'
-		);
+		expect(action({ releasing: true })).toBe('already-releasing');
 	});
 
 	/** A connect in flight outranks it: that one cannot be called off at all. */
 	it('answers for the connect first when both are in flight', () => {
-		expect(disconnectAction({ heldByTerminal: false, status: ConnectionStatus.Connected, connecting:true, releasing: true })).toBe(
-			'wait-for-connect'
-		);
+		expect(action({ connecting: true, releasing: true })).toBe('wait-for-connect');
 	});
 
 	/**
@@ -68,41 +83,22 @@ describe('what Disconnect does', () => {
 	 * back outranks a port we never held.
 	 */
 	it('names the terminal when it is the only thing holding the board', () => {
-		expect(
-			disconnectAction({
-				status: ConnectionStatus.NoAuthorizedDevice,
-				connecting: false,
-				releasing: false,
-				heldByTerminal: true,
-			})
-		).toBe('held-by-terminal');
+		expect(action({ status: ConnectionStatus.NoAuthorizedDevice, heldByTerminal: true })).toBe('held-by-terminal');
 	});
 
 	it('releases its own connection rather than pointing at a terminal', () => {
-		expect(
-			disconnectAction({
-				status: ConnectionStatus.Connected,
-				connecting: false,
-				releasing: false,
-				heldByTerminal: true,
-			})
-		).toBe('release');
+		expect(action({ status: ConnectionStatus.Connected, heldByTerminal: true })).toBe('release');
 	});
 
 	/**
-	 * The press that this replaced: a connect in flight reads as idle, because USB
-	 * never reports `Connecting`, so a terminal holding the port must not swallow
-	 * the promise to hand the board back once the chooser is done with.
+	 * A connect in flight reads as idle, because USB never reports `Connecting`, so
+	 * a terminal holding the port must not swallow the promise to hand the board
+	 * back once the chooser is done with.
 	 */
 	it('still promises the board back mid-connect while a terminal holds it', () => {
-		expect(
-			disconnectAction({
-				status: ConnectionStatus.NoAuthorizedDevice,
-				connecting: true,
-				releasing: false,
-				heldByTerminal: true,
-			})
-		).toBe('wait-for-connect');
+		expect(action({ status: ConnectionStatus.NoAuthorizedDevice, connecting: true, heldByTerminal: true })).toBe(
+			'wait-for-connect'
+		);
 	});
 
 	/**
@@ -110,10 +106,8 @@ describe('what Disconnect does', () => {
 	 * a connect in flight is promised back rather than appearing to do nothing.
 	 */
 	it('promises the board back rather than racing a connect', () => {
-		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.NoAuthorizedDevice, connecting: true })).toBe(
-			'wait-for-connect'
-		);
-		expect(disconnectAction({ heldByTerminal: false, releasing: false, status: ConnectionStatus.Connected, connecting: true })).toBe('wait-for-connect');
+		expect(action({ status: ConnectionStatus.NoAuthorizedDevice, connecting: true })).toBe('wait-for-connect');
+		expect(action({ status: ConnectionStatus.Connected, connecting: true })).toBe('wait-for-connect');
 	});
 });
 
