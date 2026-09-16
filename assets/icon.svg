@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- Adapted from micro:bit Educational Foundation artwork; redrawn with cable, heart and shading.
+       Source: https://github.com/microbit-foundation/microbit-svg/blob/master/microbit-drawing-2.svg
+       CC BY-NC-SA 4.0: https://creativecommons.org/licenses/by-nc-sa/4.0/ -->
+  <title>micro:bit Manager: ready to connect</title>
+  <desc>A close crop of a micro:bit with a USB cable aligned above its socket, ready to connect. All artwork is editable vector geometry.</desc>
+  <defs>
+    <linearGradient id="board-edge" x1="0" y1="226" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#393f34"/><stop offset=".025" stop-color="#2f362d"/>
+      <stop offset=".07" stop-color="#293029"/><stop offset="1" stop-color="#282e29"/>
+    </linearGradient>
+    <linearGradient id="board-surface" x1="120" y1="234" x2="404" y2="536" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#212628"/><stop offset=".48" stop-color="#1e2325"/><stop offset="1" stop-color="#1c2123"/>
+    </linearGradient>
+    <linearGradient id="green-print" x1="0" y1="238" x2="165" y2="315" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16d276"/><stop offset="1" stop-color="#0ecd6e"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="224" y1="275" x2="282" y2="324" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ecd075"/><stop offset=".3" stop-color="#e8ca6c"/>
+      <stop offset=".65" stop-color="#e3c465"/><stop offset="1" stop-color="#ebce72"/>
+    </linearGradient>
+    <linearGradient id="cable-rubber" x1="235" y1="0" x2="277" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2a333b"/><stop offset=".27" stop-color="#333d46"/>
+      <stop offset=".52" stop-color="#303a43"/><stop offset="1" stop-color="#2a333b"/>
+    </linearGradient>
+    <linearGradient id="plug-rubber" x1="208" y1="70" x2="304" y2="108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2f3a43"/><stop offset=".28" stop-color="#2c3740"/>
+      <stop offset=".8" stop-color="#28323a"/><stop offset="1" stop-color="#263038"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="221" y1="0" x2="291" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b9c4ca"/><stop offset=".08" stop-color="#cdd7dc"/>
+      <stop offset=".18" stop-color="#d2dbe0"/><stop offset=".35" stop-color="#c7d1d7"/>
+      <stop offset=".72" stop-color="#ccd6db"/><stop offset=".93" stop-color="#bfccd2"/>
+      <stop offset="1" stop-color="#b5c1ca"/>
+    </linearGradient>
+    <linearGradient id="socket-metal" x1="214" y1="0" x2="298" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b6c2ca"/><stop offset=".08" stop-color="#ccd7de"/>
+      <stop offset=".21" stop-color="#c4d0d8"/><stop offset=".64" stop-color="#cad5dc"/>
+      <stop offset=".9" stop-color="#c0cdd6"/><stop offset="1" stop-color="#b2bec9"/>
+    </linearGradient>
+    <linearGradient id="button-metal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#c8cecf"/><stop offset=".2" stop-color="#bfc8cd"/>
+      <stop offset=".8" stop-color="#b1bdc4"/><stop offset="1" stop-color="#bec8ce"/>
+    </linearGradient>
+    <radialGradient id="button-rubber" cx=".35" cy=".25" r=".8">
+      <stop stop-color="#27323a"/><stop offset=".55" stop-color="#222c34"/><stop offset="1" stop-color="#1f2930"/>
+    </radialGradient>
+    <linearGradient id="led-lens" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fc786a"/><stop offset=".3" stop-color="#fc685f"/><stop offset="1" stop-color="#f55e58"/>
+    </linearGradient>
+    <filter id="led-glow" x="-150%" y="-90%" width="400%" height="280%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
+    <clipPath id="canvas"><path d="M0 0H512V512H0z"/></clipPath>
+    <clipPath id="socket-reveal"><path d="M0 0H512V227H0z"/></clipPath>
+    <clipPath id="board-clip"><rect x="14" y="233" width="484" height="370" rx="26"/></clipPath>
+    <g id="button">
+      <rect x="-25" y="-31" width="8" height="62" rx="1" fill="#a5a9a2"/>
+      <rect x="17" y="-31" width="8" height="62" rx="1" fill="#a5a9a2"/>
+      <rect x="-32" y="-30" width="64" height="64" rx="5" fill="#080d10" opacity=".65"/>
+      <rect x="-31" y="-30" width="62" height="60" rx="3" fill="url(#button-metal)" stroke="#d5dce0"/>
+      <path d="M-28 25V-26H27" stroke="#f7fafb" stroke-opacity=".5" stroke-width="1.5"/>
+      <circle r="19" cy="1" fill="#080d10"/>
+      <circle r="16.5" fill="url(#button-rubber)" stroke="#536068" stroke-width=".8"/>
+      <path d="M-12-8A15 15 0 0 1 11-10" stroke="#7d878c" stroke-opacity=".35" stroke-linecap="round"/>
+      <g fill="#58636a"><circle cx="-24" cy="-23" r="2"/><circle cx="24" cy="-23" r="2"/><circle cx="-24" cy="23" r="2"/><circle cx="24" cy="23" r="2"/></g>
+    </g>
+    <g id="led">
+      <rect x="-5" y="-11" width="10" height="22" rx="1.5" fill="#0b0e10"/>
+      <path d="M-3-10H3V-6H-3zM-3 6H3V10H-3z" fill="#999087"/>
+      <rect x="-3.7" y="-6" width="7.4" height="12" rx="1.1" fill="#642f32" stroke="#a95351" stroke-width=".6"/>
+      <path d="M-1-4H1V4H-1z" fill="#ad514b"/>
+    </g>
+    <g id="lit-led">
+      <use href="#led"/>
+      <rect x="-5" y="-8" width="10" height="16" rx="3" fill="#ff3434" filter="url(#led-glow)" opacity=".8"/>
+      <rect x="-3.7" y="-6" width="7.4" height="12" rx="1.1" fill="url(#led-lens)"/>
+      <rect x="-1.2" y="-4" width="2.4" height="7" rx="1" fill="#ffe9d3"/>
+    </g>
+    <g id="led-row"><use href="#led" x="176"/><use href="#led" x="216"/><use href="#led" x="256"/><use href="#led" x="296"/><use href="#led" x="336"/></g>
+  </defs>
+  <g clip-path="url(#canvas)">
+    <g id="board" transform="translate(0 24)">
+      <rect x="9" y="227" width="494" height="382" rx="32" fill="url(#board-edge)"/>
+      <rect x="14" y="233" width="484" height="370" rx="26" fill="url(#board-surface)" stroke="#545c58" stroke-width="1.5"/>
+      <g clip-path="url(#board-clip)">
+        <path d="M2 237H134L2 369ZM137 237H198L137 298ZM201 237H232L201 268Z" fill="url(#green-print)"/>
+        <path d="M21 373V493M31 374V500M481 256V500M472 275V495" stroke="#455251" stroke-opacity=".13" stroke-width="1.3"/>
+      </g>
+      <path d="M42 233H201M309 233H470" stroke="#a0aca0" stroke-opacity=".38" stroke-width="1.3"/>
+      <g id="touch-logo" transform="translate(0 12)" fill="url(#gold)">
+        <path fill-rule="evenodd" d="M238 277H274A25 25 0 0 1 274 327H238A25 25 0 0 1 238 277ZM238 287A15 15 0 0 0 238 317H274A15 15 0 0 0 274 287Z"/>
+        <circle cx="240" cy="302" r="5.3"/><circle cx="272" cy="302" r="5.3"/>
+      </g>
+      <g id="microphone" transform="translate(0 12)">
+        <circle cx="330" cy="323" r="3.5" fill="#080e11" stroke="#d7b958" stroke-width="1.1"/>
+        <rect x="342" y="310" width="5" height="10" rx="2.5" fill="#657071"/>
+        <path d="M339 316V318A5.5 5.5 0 0 0 350 318V316M344.5 324V328M341 328H348" stroke="#657071" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+      <use href="#button" x="70" y="441"/><use href="#button" x="442" y="441"/>
+      <g id="matrix" transform="translate(0 15)">
+        <use href="#led-row" y="363"/><use href="#led-row" y="403"/><use href="#led-row" y="443"/><use href="#led-row" y="483"/><use href="#led-row" y="523"/>
+        <use href="#lit-led" x="216" y="363"/><use href="#lit-led" x="296" y="363"/>
+        <use href="#lit-led" x="176" y="403"/><use href="#lit-led" x="216" y="403"/><use href="#lit-led" x="256" y="403"/><use href="#lit-led" x="296" y="403"/><use href="#lit-led" x="336" y="403"/>
+        <use href="#lit-led" x="176" y="443"/><use href="#lit-led" x="216" y="443"/><use href="#lit-led" x="256" y="443"/><use href="#lit-led" x="296" y="443"/><use href="#lit-led" x="336" y="443"/>
+        <use href="#lit-led" x="216" y="483"/><use href="#lit-led" x="256" y="483"/><use href="#lit-led" x="296" y="483"/>
+        <use href="#lit-led" x="256" y="523"/>
+      </g>
+    </g>
+    <g id="usb-socket" transform="translate(0 24)" clip-path="url(#socket-reveal)">
+      <path d="M216 219L211 216L208 218L212 222V232H216ZM296 219L301 216L304 218L300 222V232H296Z" fill="#8b969c"/>
+      <path d="M216 216Q216 213 220 213H292Q296 213 296 216V234H216Z" fill="url(#socket-metal)" stroke="#79858b" stroke-width=".8"/>
+      <path d="M222 213H250L253 215H259L262 213H290" stroke="#eef2f3" stroke-width="1.2"/>
+      <path d="M217 218H295V222H217Z" fill="#828f97"/>
+      <path d="M217 218H295" stroke="#bcc7cd" stroke-width="1"/>
+      <path d="M222 222H290V230H222Z" fill="#adb9bf"/>
+      <path d="M227 214V217M285 214V217M256 213V219" stroke="#67747c" stroke-width="1"/>
+    </g>
+    <g id="usb-cable" transform="translate(0 12)">
+      <path d="M239-24H273V35H239Z" fill="url(#cable-rubber)" stroke="#0c141a" stroke-width="1.5"/>
+      <path d="M245-24V27" stroke="#74808b" stroke-opacity=".35" stroke-width="2"/>
+      <path d="M238 12H274Q280 12 280 20L283 56H229L232 20Q232 12 238 12Z" fill="url(#plug-rubber)" stroke="#111a21" stroke-width="1.5"/>
+      <path d="M234 23H278M233 33H279M232 43H280" stroke="#0e171e" stroke-width="3.5"/>
+      <path d="M236 20H276M235 30H277M234 40H278" stroke="#63717b" stroke-opacity=".45" stroke-width="1.2"/>
+      <path d="M222 150H290V190L286 196H226L222 190Z" fill="url(#metal)" stroke="#65747c" stroke-width="1"/>
+      <path d="M225 154V189L228 193H284L287 189V154" stroke="#f6fafb" stroke-width="1.2"/>
+      <path d="M232 169H239V179H232ZM273 169H280V179H273Z" fill="#69777e"/>
+      <path d="M233 170H238V177H233ZM274 170H279V177H274Z" fill="#24323a"/>
+      <path d="M228 195H284L287 192H225Z" fill="#8b989f"/>
+      <path d="M232 196H280" stroke="#34434b" stroke-width="1.2"/>
+      <path d="M256 156V191" stroke="#fff" stroke-opacity=".24" stroke-width=".8"/>
+      <path d="M232 46H280Q291 46 296 59L302 78V144Q302 159 287 159H225Q210 159 210 144V78L216 59Q221 46 232 46Z" fill="url(#plug-rubber)" stroke="#101820" stroke-width="2"/>
+      <path d="M215 141V79L221 60Q225 51 234 51H278Q287 51 291 61" stroke="#73808a" stroke-opacity=".45" stroke-width="1.5"/>
+      <path d="M216 149Q218 155 229 155H284Q295 155 297 147" stroke="#080f14" stroke-width="2"/>
+      <path d="M218 84V134M294 84V134" stroke="#0d171e" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+      <g id="usb-symbol" transform="translate(0 -2)" stroke="#82919b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".7">
+        <path d="M256 125V91M252 96L256 91L260 96M256 113L246 105V100M256 119L267 110V103"/>
+        <circle cx="246" cy="98" r="2.5" fill="#82919b" stroke="none"/>
+        <path d="M264 99H270V104H264Z" fill="#82919b" stroke="none"/>
+        <circle cx="256" cy="126" r="3" fill="#82919b" stroke="none"/>
+      </g>
+    </g>
+  </g>
+</svg>

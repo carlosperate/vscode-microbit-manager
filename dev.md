@@ -5,6 +5,7 @@
 npm install
 npm run typecheck   # tsc over src/, then over src/node/, src/webview/ and test/
 npm run build       # esbuild -> dist/browser.js, dist/node.js and the switcher's script
+npm run build:icon  # assets/icon.svg -> assets/icon.png, transparent 256x256
 npm test            # vitest, the pure modules and the build guards
 npm run test:integration
 npm run test:integration:desktop
