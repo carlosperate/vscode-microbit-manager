@@ -8,33 +8,51 @@
  *
  * Both run a VS Code downloaded into `.vscode-test/` with an extensions
  * directory of their own, so a session is isolated from the machine's own
- * install and no settings of the developer's are read.
+ * install and no settings of the developer's are read. The interactive profile
+ * is wiped on every launch, so the bench opens as a fresh install each time.
  *
  * `--extensionDevelopmentKind` is deliberately not passed. The manifest declares
  * both `main` and `browser`, so desktop picks `main` and runs this in the Node
  * host, which is what a real desktop install gets. Forcing the web kind here
  * would test a bundle no desktop user ever loads.
  */
-import { downloadAndUnzipVSCode, runTests, runVSCodeCommand } from '@vscode/test-electron';
-import { spawn } from 'node:child_process';
+import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath, runTests } from '@vscode/test-electron';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { extensionsIn } from './extensions.mjs';
+
 // This script lives in config/, but the bench and .vscode-test/ are
 // repo-root-relative, so `root` steps back up out of config/.
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
 const bench = path.join(root, 'test', 'workspace');
+// The two places a bench profile may live, and the only two this script will ever remove.
+const benchRoot = path.join(root, '.vscode-test');
+const tempPrefix = path.join(os.tmpdir(), 'mbmgr-');
 const testing = process.argv.includes('--test');
-const extraExtensions = process.argv.includes('--extra-extensions');
+// Other extensions loaded from source beside this one, `--extensionPath=<path>`,
+// repeatable: the fixtures under test/fixtures/ are how a second mode exists. The
+// web harness spells it the same way and takes a folder of extensions too, so this
+// reads both through the same rule.
+const alongside = process.argv
+	.filter((argument) => argument.startsWith('--extensionPath='))
+	.flatMap((argument) => extensionsIn(argument.slice('--extensionPath='.length), root));
 // `engines.vscode` is the floor, and its node is far older than the @types/node
 // this compiles against, so a node API newer than it compiles and then throws.
 // Only running there catches that: `--vscode-version=1.91.1`.
 const versionArgument = process.argv.find((argument) => argument.startsWith('--vscode-version='));
 const version = versionArgument?.slice('--vscode-version='.length);
+// Published extensions installed into the fresh profile, `--installExtension=<vsix>`,
+// repeatable. A local VSIX, so a launch costs nothing on the network however often
+// the profile is wiped; `config/extension-cache.mjs` is what keeps them.
+const installs = process.argv
+	.filter((argument) => argument.startsWith('--installExtension='))
+	.map((argument) => path.resolve(root, argument.slice('--installExtension='.length)));
 
 /** The limit is on the socket path, so it is the socket that gets measured. */
 const SOCKET_LIMIT = 103;
@@ -62,23 +80,22 @@ const fits = (dir) =>
  * The interactive profile sits beside the downloaded VS Code, unless the
  * checkout is too deep for that to fit the socket limit, in which case it moves
  * to the temp directory under a name derived from the checkout so two clones
- * keep their own settings. Announced, because a profile that silently moved is a
- * setting that silently disappeared.
+ * never share one. Announced, so a profile that moved can still be found.
  */
 function userDataDir() {
 	if (testing) {
 		// Measured before the directory is made, so a TMPDIR too deep for a socket
 		// does not leave an empty profile behind on every failed run.
-		const template = path.join(os.tmpdir(), 'mbmgr-test-XXXXXX');
+		const template = `${tempPrefix}test-XXXXXX`;
 		if (!fits(template)) throw tooDeep(template);
-		return fs.mkdtempSync(path.join(os.tmpdir(), 'mbmgr-test-'));
+		return fs.mkdtempSync(`${tempPrefix}test-`);
 	}
 
-	const beside = path.join(root, '.vscode-test', 'user-data');
+	const beside = path.join(benchRoot, 'user-data');
 	if (fits(beside)) return beside;
 
 	const key = createHash('sha256').update(root).digest('hex').slice(0, 8);
-	const elsewhere = path.join(os.tmpdir(), `mbmgr-${key}`);
+	const elsewhere = `${tempPrefix}${key}`;
 	if (!fits(elsewhere)) throw tooDeep(elsewhere);
 	console.log(`[desktop] ${root} is too deep for a profile beside it, so this session keeps its settings in ${elsewhere}`);
 	return elsewhere;
@@ -95,13 +112,26 @@ const tooDeep = (dir) =>
  * The Copilot sign-in modal is not covered by `--disable-extensions`: it comes
  * from `GitHub.copilot-chat`, which ships as a builtin, and builtins stay
  * enabled. A setting is the only thing that stops it swallowing keystrokes.
- * Never overwrites, so a level raised in a session survives the next launch.
  */
 function seedSettings(dir) {
 	const settings = path.join(dir, 'User', 'settings.json');
 	if (fs.existsSync(settings)) return;
 	fs.mkdirSync(path.dirname(settings), { recursive: true });
 	fs.writeFileSync(settings, `${JSON.stringify({ 'chat.disableAIFeatures': true }, null, '\t')}\n`);
+}
+
+/**
+ * A bench that remembers is a bench that lies: a collapsed section, a chosen
+ * mode or an extension installed last time would all pass for the first run's
+ * behaviour. So every interactive launch starts as a fresh install. Only a
+ * directory under one of the two bench roots above is ever removed, checked by
+ * path. Anything else is refused, whatever asked for it.
+ */
+function freshBenchDir(dir) {
+	if (![benchRoot + path.sep, tempPrefix].some((prefix) => dir.startsWith(prefix))) {
+		throw new Error(`refusing to remove ${dir}: it is not a bench directory of this script's making`);
+	}
+	fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
 
 /** Launched from VS Code's own terminal, the inherited VSCODE_* vars reach the
@@ -124,23 +154,25 @@ function clearedVscodeVars() {
 }
 
 const profile = userDataDir();
-seedSettings(profile);
-
 // Alongside the user data for a test run, so both are thrown away together: an
 // extension installed during an interactive session must not reach the tests.
-const extensionsDir = testing
-	? path.join(profile, 'extensions')
-	: path.join(root, '.vscode-test', 'extensions');
+const extensionsDir = testing ? path.join(profile, 'extensions') : path.join(benchRoot, 'extensions');
+// A test profile is brand new already; the interactive one is made so here.
+if (!testing) {
+	for (const dir of [profile, extensionsDir]) freshBenchDir(dir);
+	console.log(`[desktop] fresh profile at ${profile}`);
+}
+seedSettings(profile);
 
-// The ids come from our own manifest, so there is one list rather than two.
-if (extraExtensions) {
-	const { extensionPack = [] } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-	for (const id of extensionPack) {
-		await runVSCodeCommand(
-			['--install-extension', id, `--extensions-dir=${extensionsDir}`, `--user-data-dir=${profile}`],
-			{ ...(version ? { version } : {}), spawn: { env: cleanEnv() } }
-		);
-	}
+// After the wipe, so what a wiped profile loses is put back, and before the launch,
+// so the window opens with them already there.
+for (const vsix of installs) {
+	const cli = resolveCliPathFromVSCodeExecutablePath(await downloadAndUnzipVSCode(version));
+	const run = spawnSync(cli, ['--install-extension', vsix, `--extensions-dir=${extensionsDir}`, `--user-data-dir=${profile}`], {
+		stdio: 'inherit',
+		env: cleanEnv(),
+	});
+	if (run.status !== 0) throw new Error(`could not install ${vsix} into the bench profile`);
 }
 
 const launchArgs = [
@@ -161,7 +193,7 @@ if (testing) {
 	try {
 		await runTests({
 			...(version ? { version } : {}),
-			extensionDevelopmentPath: root,
+			extensionDevelopmentPath: [root, ...alongside],
 			extensionTestsPath: path.join(root, 'test', 'integration', 'dist', 'index.js'),
 			extensionTestsEnv: clearedVscodeVars(),
 			launchArgs,
@@ -182,6 +214,7 @@ if (testing) {
 		// Absolute: VS Code resolves a relative path here against its own cwd, not
 		// the shell's, and then quietly opens a window with no extension in it.
 		`--extensionDevelopmentPath=${root}`,
+		...alongside.map((extension) => `--extensionDevelopmentPath=${extension}`),
 		...launchArgs,
 	];
 	/**

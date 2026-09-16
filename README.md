@@ -16,13 +16,15 @@ Works in the browser and on the desktop, with no server and no setup.
 
 This extension puts a program **on** a board. It does not write one. For that,
 install the extension for the language you want and it will add its own tools to
-the same micro:bit panel. Today that is
+the same micro:bit panel. Today those are
 [BBC micro:bit MicroPython](https://open-vsx.org/extension/carlosperate/bbcmicrobit-micropython),
-for Python programs.
+for Python programs, and
+[BBC micro:bit C++](https://open-vsx.org/extension/carlosperate/bbcmicrobit-cpp),
+for C++ ones. With none installed, this extension's panel offers both.
 
 With one installed, the panel is that extension's: its build button, its tools,
-its layout. With more than one, a switcher appears at the top so you can move
-between them.
+its layout. With more than one, a switch appears at the top of the panel to
+move between them.
 
 You do not need to install this extension yourself. Installing either of the
 above brings it along.

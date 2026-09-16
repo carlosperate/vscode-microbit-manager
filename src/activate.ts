@@ -10,9 +10,11 @@ import { flashHexFile } from './commands/flashFile';
 import { showMenu } from './commands/showMenu';
 import { COMMANDS, PRODUCT, type CommandId } from './config';
 import { createLog, log } from './log';
+import { createModes } from './modes/state';
 import { createSerialMonitor } from './serial/eclipse';
 import { createFallbackView } from './ui/fallback';
 import type { BoardState } from './ui/menu';
+import { createSwitcher, switchMode } from './ui/switcher';
 
 export type CommandHandler = (context: vscode.ExtensionContext, ...args: unknown[]) => Promise<void>;
 
@@ -44,7 +46,11 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 	log(`Extension activated, ${host.entry} entry`);
 
 	createSerialMonitor(context);
-	createFallbackView(context);
+	// Before anything can register: dependencies activate first, so the panel is
+	// drawn from context keys the registry sets, never from a state read once here.
+	const modes = createModes(context);
+	createSwitcher(context, modes);
+	createFallbackView(context, modes);
 	// The status bar item belongs to whichever host built it: on web it tracks a
 	// live connection, so it is created with one rather than beside it.
 	host.start?.(context);
@@ -55,7 +61,16 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 
 	const implemented: Partial<Record<CommandId, CommandHandler>> = {
 		...host.commands,
-		[COMMANDS.showMenu]: (forMenu) => showMenu(forMenu, host.boardState?.() ?? 'unpairable'),
+		[COMMANDS.showMenu]: (forMenu) => {
+			const { mode, shape } = modes.snapshot();
+			return showMenu(
+				forMenu,
+				host.boardState?.() ?? 'unpairable',
+				mode && { label: mode.label, entries: mode.menuCommands ?? [] },
+				shape === 'many'
+			);
+		},
+		[COMMANDS.switchMode]: switchMode(modes),
 		// Shared, because the only host-specific part of it is the write at the end.
 		[COMMANDS.flashHexFile]: flashHexFile(access.flashHex),
 	};
@@ -82,7 +97,7 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 		);
 	}
 
-	return createApi(access);
+	return createApi(access, modes);
 }
 
 /**

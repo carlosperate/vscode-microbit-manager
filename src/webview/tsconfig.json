@@ -1,0 +1,14 @@
+{
+	// The strip runs in a webview document: the DOM and nothing else. Its own
+	// project because the root's WebWorker lib and `vscode` types would let the
+	// wrong globals compile here, and the root excludes this folder as a root.
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"lib": ["ES2020", "DOM", "DOM.Iterable"],
+		"types": []
+	},
+	// The root's `exclude` names this very folder, and it is inherited, so it has
+	// to be replaced rather than extended.
+	"exclude": ["../../node_modules", "../../dist"],
+	"include": ["**/*.ts"]
+}

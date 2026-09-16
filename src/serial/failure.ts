@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import { PRODUCT, SERIAL_MONITOR_EXTENSION } from '../config';
 import { log } from '../log';
+import { openExtensionPage } from '../ui/extensionPage';
 import { SerialMonitorError } from './provider';
 
 const SHOW_EXTENSION = 'Show Serial Monitor Extension';
@@ -17,9 +18,7 @@ export async function reportSerialFailure(error: unknown): Promise<void> {
 
 	if (error instanceof SerialMonitorError) {
 		const action = await vscode.window.showErrorMessage(`${PRODUCT}: ${message}`, SHOW_EXTENSION);
-		if (action === SHOW_EXTENSION) {
-			await vscode.commands.executeCommand('workbench.extensions.search', `@id:${SERIAL_MONITOR_EXTENSION}`);
-		}
+		if (action === SHOW_EXTENSION) await openExtensionPage(SERIAL_MONITOR_EXTENSION);
 		return;
 	}
 

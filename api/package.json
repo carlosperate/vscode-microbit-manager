@@ -1,11 +1,14 @@
 {
   "name": "bbcmicrobit-manager-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Types for the API that the BBC micro:bit Manager extension returns from activate().",
   "types": "index.d.ts",
   "files": [
     "index.d.ts"
   ],
+  "peerDependencies": {
+    "@types/vscode": "*"
+  },
   "license": "MIT",
   "publisher": "carlosperate",
   "repository": {

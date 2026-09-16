@@ -1,14 +1,20 @@
+import type { MicrobitManagerApi, Mode } from '../../api';
 import * as vscode from 'vscode';
 
+import manifest from '../../package.json';
 import {
+	API_VERSION,
 	CAN_PAIR_CONTEXT,
 	COMMANDS,
 	CONTAINER_ID,
 	FALLBACK_VIEW_ID,
 	PRODUCT,
 	SERIAL_MONITOR_EXTENSION,
+	SWITCHER_VIEW_ID,
 } from '../../src/config';
-import { API_VERSION } from '../../src/config';
+
+/** The id the host gives this extension, from the manifest rather than a copy of it. */
+const EXTENSION_ID = `${manifest.publisher}.${manifest.name}`;
 
 /**
  * The integration tests: one bundle on two hosts, `@vscode/test-web` and
@@ -16,7 +22,15 @@ import { API_VERSION } from '../../src/config';
  * reports before it asserts, so a failing run names the assumption that broke
  * rather than stopping at the first one.
  */
-const EXTENSION_ID = 'carlosperate.bbcmicrobit-manager';
+
+/** The second mode the harness loads from `test/fixtures/fake-mode`, and the only one until a real one exists. */
+const FAKE_MODE_ID = 'bbcmicrobit-test.fake-mode';
+
+/** What the fixture returns from `activate()`. */
+interface FakeModeStatus {
+	registered: boolean;
+	error: string | undefined;
+}
 
 interface Result {
 	name: string;
@@ -73,15 +87,22 @@ async function checks(): Promise<void> {
 	const api = await checkActivation(extension);
 	checkTheExportedObjectIsTheContract(api);
 	checkTheContainerIsContributed(extension);
-	checkTheFallbackViewLivesInTheContainer(extension);
 	await checkTheWorkbenchAcceptedTheContributions();
-	checkTheWelcomeContentPointsAtRealCommands(extension);
+	await checkTheWelcomeContentPointsAtRealCommands(extension);
 	checkEveryCommandSaysWhoOwnsIt(extension);
 	await checkContributedCommandsResolve(extension);
 	await checkPairingIsHiddenWhereItCannotHappen(extension);
 	await checkTheSerialCompanionIsOfferedNotRequired(extension);
 	checkAHexFileOffersTheFlash(extension);
+
+	if (!isApi(api)) return;
+	await checkTheFakeModeRegistered(api);
+	checkRegistrationIsGuarded(api);
+	await checkAClaimSeedsTheModeAndADisposalFallsBack(api);
 }
+
+const isApi = (api: unknown): api is MicrobitManagerApi =>
+	typeof api === 'object' && api !== null && typeof (api as { registerMode?: unknown }).registerMode === 'function';
 
 /**
  * A throw inside `activate()` would otherwise reject out of `run()` with no
@@ -128,8 +149,19 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 	// Exactly these, in both directions: a member the types promise and the object
 	// lacks is a mode calling undefined, and one the object has and the types do not
 	// is a mode using something nothing guarantees will still be there.
-	const declared = ['board', 'commands', 'connect', 'flashHex', 'saveHex', 'version'];
-	const callable = ['board', 'connect', 'flashHex', 'saveHex'].filter(
+	const declared = [
+		'activeMode',
+		'board',
+		'commands',
+		'connect',
+		'flashHex',
+		'onDidChangeActiveMode',
+		'registerMode',
+		'saveHex',
+		'version',
+	];
+	// An `Event` is a function too: it is called to subscribe.
+	const callable = ['activeMode', 'board', 'connect', 'flashHex', 'onDidChangeActiveMode', 'registerMode', 'saveHex'].filter(
 		(member) => typeof (api as Record<string, unknown>)[member] !== 'function'
 	);
 	const commands = (api as { commands?: Record<string, unknown> }).commands ?? {};
@@ -141,7 +173,7 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 			callable.length === 0 &&
 			semver &&
 			version === API_VERSION &&
-			ids.join() === 'connect,disconnect,flashHexFile,openTerminal',
+			ids.join() === 'connect,disconnect,flashHexFile,openTerminal,switchMode',
 		`keys=[${keys.join(', ')}], commands=[${ids.join(', ')}], version=${String(version)}` +
 			`${callable.length ? `, not functions: ${callable.join(', ')}` : ''}`
 	);
@@ -172,42 +204,56 @@ function checkTheContainerIsContributed(extension: vscode.Extension<unknown>): v
  */
 async function checkTheWorkbenchAcceptedTheContributions(): Promise<void> {
 	const registered = await vscode.commands.getCommands(true);
-	const expected = [`workbench.view.extension.${CONTAINER_ID}`, `${FALLBACK_VIEW_ID}.focus`];
+	const expected = [
+		`workbench.view.extension.${CONTAINER_ID}`,
+		`${FALLBACK_VIEW_ID}.focus`,
+		`${SWITCHER_VIEW_ID}.focus`,
+	];
 	const missing = expected.filter((command) => !registered.includes(command));
 	record(
-		'the workbench registered the container and the view',
+		'the workbench registered the container and both views',
 		missing.length === 0,
 		missing.length ? `missing: ${missing.join(', ')}` : expected.join(', ')
-	);
-}
-
-function checkTheFallbackViewLivesInTheContainer(extension: vscode.Extension<unknown>): void {
-	const views: { id: string }[] = extension.packageJSON?.contributes?.views?.[CONTAINER_ID] ?? [];
-	record(
-		'the fallback view is inside the container',
-		views.some((view) => view.id === FALLBACK_VIEW_ID),
-		`${CONTAINER_ID} holds ${views.map((view) => view.id).join(', ') || 'nothing'}`
 	);
 }
 
 /**
  * Welcome content is markdown, so its command links are strings the workbench
  * resolves only when a user clicks one. A typo is a button that silently does
- * nothing, which no other check here would see.
+ * nothing, which no other check here would see. Checked against what the
+ * workbench registered, since the install link is one of its own commands.
  */
-function checkTheWelcomeContentPointsAtRealCommands(extension: vscode.Extension<unknown>): void {
+async function checkTheWelcomeContentPointsAtRealCommands(extension: vscode.Extension<unknown>): Promise<void> {
 	const welcome: { view: string; contents: string }[] = extension.packageJSON?.contributes?.viewsWelcome ?? [];
 	const contents = welcome
 		.filter((entry) => entry.view === FALLBACK_VIEW_ID)
 		.map((entry) => entry.contents)
 		.join('\n');
-	const linked = [...contents.matchAll(/\(command:([^)?]+)/g)].map((match) => match[1]);
-	const known: string[] = Object.values(COMMANDS);
-	const unknown = linked.filter((command) => !known.includes(command ?? ''));
+	const linked = [...contents.matchAll(/\(command:([^)?]+)/g)].map((match) => match[1] ?? '');
+	// Our own commands, plus the workbench's page opener for the install links: a
+	// link to any other extension's command would run in a bench and fail for a user.
+	const known = new Set<string>([...Object.values(COMMANDS), 'extension.open']);
+	const registered = await vscode.commands.getCommands(true);
+	const unknown = linked.filter((command) => !known.has(command) || !registered.includes(command));
 	record(
 		'the fallback panel links commands that exist',
 		linked.length > 0 && unknown.length === 0,
 		`links ${linked.join(', ') || 'nothing'}${unknown.length ? `, unknown: ${unknown.join(', ')}` : ''}`
+	);
+
+	// The one place other extensions are named in this repository: the install
+	// links, each opening a page rather than installing in silence.
+	const installs = [...contents.matchAll(/\(command:extension\.open\?([^)]+)\)/g)].map((match) => {
+		try {
+			return (JSON.parse(decodeURIComponent(match[1] ?? '')) as string[])[0];
+		} catch {
+			return undefined;
+		}
+	});
+	record(
+		'every install link carries an extension id the way extension.open expects',
+		installs.length > 0 && installs.every((id) => typeof id === 'string' && /^[\w-]+\.[\w-]+$/.test(id)),
+		installs.length > 0 ? `extension.open(${installs.map(String).join('), extension.open(')})` : 'no extension.open link'
 	);
 }
 
@@ -336,6 +382,173 @@ function checkAHexFileOffersTheFlash(extension: vscode.Extension<unknown>): void
 		entry !== undefined && (entry.when ?? '').includes('.hex'),
 		entry ? `when: ${entry.when ?? 'always, on every file'}` : `${COMMANDS.flashHexFile} is not on explorer/context`
 	);
+}
+
+/**
+ * A real second extension, loaded by the harness, registering the way a
+ * language extension would. Its absence is a harness fault and is reported as
+ * one, since every check after this one needs it.
+ */
+async function checkTheFakeModeRegistered(api: MicrobitManagerApi): Promise<void> {
+	const fake = vscode.extensions.getExtension<FakeModeStatus>(FAKE_MODE_ID);
+	if (!fake) {
+		record(
+			'the fake mode is loaded beside this extension',
+			false,
+			`${FAKE_MODE_ID} is not loaded. The harness passes test/fixtures/fake-mode with --extensionPath on web and --extension on desktop.`
+		);
+		return;
+	}
+
+	let status: FakeModeStatus | undefined;
+	try {
+		status = await fake.activate();
+	} catch (error) {
+		record('the fake mode registered', false, `activate() threw: ${String(error)}`);
+		return;
+	}
+	record(
+		'the fake mode registered',
+		status?.registered === true,
+		`registered=${String(status?.registered)}${status?.error ? `, error: ${status.error}` : ''}`
+	);
+
+	record(
+		'the only registered mode is the active one, with nobody having chosen',
+		api.activeMode() === 'fake',
+		`activeMode()=${String(api.activeMode())}`
+	);
+}
+
+/** A well formed mode nobody else has registered. */
+const testMode = (over: Partial<Mode> = {}): Mode => ({
+	apiVersion: API_VERSION,
+	id: 'integration-test',
+	extensionId: 'bbcmicrobit-test.integration',
+	label: 'Test',
+	...over,
+});
+
+/** Registers and unregisters at once, answering with what was thrown. */
+function refusal(api: MicrobitManagerApi, candidate: unknown): Error | undefined {
+	try {
+		api.registerMode(candidate as Mode).dispose();
+		return undefined;
+	} catch (error) {
+		return error instanceof Error ? error : new Error(String(error));
+	}
+}
+
+/**
+ * Three refusals, each a different sentence, and the mode already registered
+ * has to come through all of them untouched: a refusal is the other
+ * extension's problem, never the panel's.
+ */
+function checkRegistrationIsGuarded(api: MicrobitManagerApi): void {
+	const malformed = refusal(api, { ...testMode(), id: undefined });
+	record(
+		'a malformed mode is refused by the name of the field',
+		malformed instanceof TypeError && malformed.message.includes('`id`'),
+		malformed ? `${malformed.name}: ${malformed.message}` : 'accepted'
+	);
+
+	const incompatible = refusal(api, testMode({ apiVersion: '999.0.0' }));
+	record(
+		'a mode needing a newer API is refused as incompatible, carrying both versions',
+		incompatible?.name === 'IncompatibleApiError' &&
+			incompatible.message.includes('999.0.0') &&
+			incompatible.message.includes(API_VERSION),
+		incompatible ? `${incompatible.name}: ${incompatible.message}` : 'accepted'
+	);
+
+	const duplicate = refusal(api, testMode({ id: 'fake' }));
+	record(
+		'a second mode with a taken id is refused, naming who has it',
+		duplicate !== undefined && duplicate.message.includes(FAKE_MODE_ID),
+		duplicate ? duplicate.message : 'accepted'
+	);
+
+	const accepted = refusal(api, testMode({ apiVersion: '0.0.1' }));
+	record(
+		'an older mode of the same major is served',
+		accepted === undefined,
+		accepted ? `${accepted.name}: ${accepted.message}` : 'registered and disposed'
+	);
+
+	record('the fake mode came through the refusals untouched', api.activeMode() === 'fake', `activeMode()=${String(api.activeMode())}`);
+}
+
+/** The next active mode, or a stall: nothing here may wait forever. */
+function nextActiveMode(api: MicrobitManagerApi): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(() => {
+			listener.dispose();
+			resolve('(no change within 5s)');
+		}, 5000);
+		const listener = api.onDidChangeActiveMode((id) => {
+			clearTimeout(timer);
+			listener.dispose();
+			resolve(id);
+		});
+	});
+}
+
+/**
+ * The seeding policy against a real registry on both hosts: with nobody having
+ * chosen, the lowest id wins whatever the order, a lone claimant beats it, a
+ * mode once claimed stays as the last used, and losing the active mode falls
+ * back rather than pointing at nothing.
+ */
+async function checkAClaimSeedsTheModeAndADisposalFallsBack(api: MicrobitManagerApi): Promise<void> {
+	// Registered after 'fake' and sorting before it, so this is order against id.
+	const lowered = nextActiveMode(api);
+	const quiet = api.registerMode(testMode({ id: 'aaa-quiet', label: 'Quiet' }));
+	const afterQuiet = await lowered;
+	record(
+		'with nobody having chosen, the lowest id wins over registration order',
+		afterQuiet === 'aaa-quiet',
+		`changed to ${String(afterQuiet)}`
+	);
+
+	let claiming = true;
+	const claimChanged = new vscode.EventEmitter<void>();
+	const seeded = nextActiveMode(api);
+	const claimant = api.registerMode(
+		testMode({
+			id: 'zzz-claimant',
+			label: 'Claimant',
+			claimsWorkspace: () => Promise.resolve(claiming),
+			onDidChangeWorkspaceClaim: claimChanged.event,
+		})
+	);
+	const afterClaim = await seeded;
+	record('a lone claimant becomes the active mode', afterClaim === 'zzz-claimant', `changed to ${String(afterClaim)}`);
+
+	// Withdrawing the claim leaves it active: a mode once claimed is the last used,
+	// and last used beats the lowest id.
+	claiming = false;
+	claimChanged.fire();
+	await new Promise((resolve) => setTimeout(resolve, 1000));
+	record(
+		'a mode that was claimed stays active as the last used once the claim is withdrawn',
+		api.activeMode() === 'zzz-claimant',
+		`activeMode()=${String(api.activeMode())}`
+	);
+
+	const fell = nextActiveMode(api);
+	claimant.dispose();
+	const afterDisposal = await fell;
+	record(
+		'disposing the active mode falls back to the lowest id once the last used has gone',
+		afterDisposal === 'aaa-quiet',
+		`changed to ${String(afterDisposal)}`
+	);
+
+	const back = nextActiveMode(api);
+	quiet.dispose();
+	const afterLast = await back;
+	record('disposing down to one mode leaves it active', afterLast === 'fake', `changed to ${String(afterLast)}`);
+	claimChanged.dispose();
 }
 
 function summarise(): void {

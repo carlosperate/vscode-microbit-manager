@@ -1,0 +1,60 @@
+{
+  "name": "fake-mode",
+  "displayName": "Fake Mode",
+  "description": "A second mode for the bench and the integration tests. Registers with the BBC micro:bit Manager and asks it for its board section rather than drawing buttons of its own.",
+  "version": "0.0.1",
+  "publisher": "bbcmicrobit-test",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "main": "./extension.js",
+  "browser": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "carlosperate.bbcmicrobit-manager"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "fake-mode.flash",
+        "title": "Flash (fake)",
+        "category": "Fake Mode"
+      },
+      {
+        "command": "fake-mode.toggle",
+        "title": "Toggle Registration",
+        "category": "Fake Mode"
+      }
+    ],
+    "configuration": {
+      "title": "Fake Mode",
+      "properties": {
+        "fake-mode.apiVersion": {
+          "type": "string",
+          "default": "0.1.0",
+          "description": "The manager API this mode declares it needs. Raise the major to be refused."
+        },
+        "fake-mode.label": {
+          "type": "string",
+          "default": "Fake",
+          "description": "The switcher label. Make it long to check truncation."
+        },
+        "fake-mode.claims": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this mode claims the open workspace as its own."
+        }
+      }
+    }
+  }
+}

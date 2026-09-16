@@ -1,5 +1,5 @@
 # Release Notes
 
-## Unreleased
+## v0.1.0 - Unreleased
 
-- Nothing yet.
+- Initial release.

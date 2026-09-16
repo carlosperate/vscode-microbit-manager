@@ -17,6 +17,7 @@ import {
 import * as vscode from 'vscode';
 
 import { CAN_PAIR_CONTEXT, PRODUCT } from '../config';
+import { setContext } from '../context';
 import { log } from '../log';
 import {
 	BOARD_CHANGED,
@@ -200,9 +201,7 @@ export function createBoard(context: vscode.ExtensionContext): void {
 		(registered) => {
 			bridged = registered.includes(REQUEST_USB_DEVICE);
 			// Hides Connect and Disconnect from the palette; set only here, so it is the probe's answer.
-			void vscode.commands.executeCommand('setContext', CAN_PAIR_CONTEXT, bridged).then(undefined, (error: unknown) =>
-				log(`Could not say whether this host can pair: ${describeError(error)}`)
-			);
+			setContext(CAN_PAIR_CONTEXT, bridged);
 			log(bridged ? 'This host can pair a micro:bit' : 'This host can only use a micro:bit something else authorised');
 		},
 		(error: unknown) => log(`Could not tell whether this host can pair a micro:bit: ${describeError(error)}`)

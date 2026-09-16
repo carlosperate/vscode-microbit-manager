@@ -10,6 +10,8 @@ export const COMMANDS = {
 	openTerminal: 'bbcmicrobit-manager.openTerminal',
 	/** The status bar item's action, so it is hidden from the palette and from itself. */
 	showMenu: 'bbcmicrobit-manager.showMenu',
+	/** With a mode id, switches to it; without one, asks. Hidden from the palette with fewer than two. */
+	switchMode: 'bbcmicrobit-manager.switchMode',
 } as const;
 
 export type CommandId = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -20,7 +22,7 @@ export type CommandId = (typeof COMMANDS)[keyof typeof COMMANDS];
  * moves when the contract does and stays put when only the extension ships. It
  * lives here rather than beside the API object, which reaches `vscode`.
  */
-export const API_VERSION = '0.1.0';
+export const API_VERSION = '0.2.0';
 
 /**
  * The user-facing name. The display name, every command category, the output
@@ -37,8 +39,23 @@ export const PRODUCT = 'BBC micro:bit Manager';
  */
 export const CONTAINER_ID = 'bbcmicrobit';
 
-/** The fallback panel: welcome content over a tree that stays empty. */
+/** The fallback panel: welcome content over a tree that stays empty, shown only while nothing is registered. */
 export const FALLBACK_VIEW_ID = 'bbcmicrobit-manager.fallback';
+
+/** The switcher: a webview drawing one segment per mode, shown only with two or more registered. */
+export const SWITCHER_VIEW_ID = 'bbcmicrobit-manager.switcher';
+
+/** The shape keys, nothing registered and two or more; `modes/state.ts` sets them in the order the layout needs. */
+export const NO_MODES_CONTEXT = 'bbcmicrobit-manager.noModes';
+export const MANY_MODES_CONTEXT = 'bbcmicrobit-manager.manyModes';
+/** The active mode's id, one string key so a switch is one change; a mode gates its views on `== <id>`. */
+export const ACTIVE_MODE_CONTEXT = 'bbcmicrobit-manager.activeMode';
+/** The ids of registered modes that asked for the board section; the fallback view gates on `activeMode in` this. */
+export const BOARD_PANEL_MODES_CONTEXT = 'bbcmicrobit-manager.boardPanelModes';
+
+/** The user's pick, per workspace; and the mode last active in any window, which seeds an unclaimed one. */
+export const CHOSEN_MODE_STATE = 'bbcmicrobit-manager.mode';
+export const LAST_MODE_STATE = 'bbcmicrobit-manager.lastMode';
 
 /**
  * The Open VSX companion that owns every serial terminal, on both hosts. A pack

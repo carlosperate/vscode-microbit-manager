@@ -9,8 +9,8 @@
 		"lib": ["ES2020"],
 		"types": ["vscode", "node", "w3c-web-serial", "w3c-web-usb"]
 	},
-	// The root's `exclude` is this very folder, and it is inherited, so it has to
-	// be replaced rather than extended.
+	// The root's `exclude` names this very folder, and it is inherited, so it has
+	// to be replaced rather than extended.
 	"exclude": ["../../node_modules", "../../dist"],
 	"include": ["**/*.ts"]
 }

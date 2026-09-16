@@ -1,38 +1,83 @@
-# Working on this extension
+# Extension Dev Nots
 
-Contributor notes. Not published, and not the marketplace README.
-
-## Setup
 
 ```sh
 npm install
-```
-
-## The gates
-
-Run all three before handing anything over. Green here is what CI checks too.
-
-```sh
-npm run typecheck   # tsc over src/, then over src/node/ and test/, the two with node's types
-npm run build       # esbuild -> dist/browser.js and dist/node.js
+npm run typecheck   # tsc over src/, then over src/node/, src/webview/ and test/
+npm run build       # esbuild -> dist/browser.js, dist/node.js and the switcher's script
 npm test            # vitest, the pure modules and the build guards
+npm run test:integration
+npm run test:integration:desktop
+npm run test:all    # all of the above in CI's order, stopping at the first failure
 ```
-
-`npm run test:watch` reruns while you work.
 
 ## Driving a real editor
 
 ```sh
 npm run serve      # web on :3000, no browser launched, for the Playwright MCP server
 npm run chrome     # web, launches its own Chromium
-npm run desktop    # desktop VS Code, Node host
+npm run desktop    # desktop VS Code, Node host, a fresh profile every launch
 ```
 
 All three open `test/workspace/`, the bench. It is checked in and deliberately small, so a manual
 check is repeatable rather than "make some files and see".
 
+They load no mode, so the panel is the fallback. The other shapes come from the two fixtures in
+`test/fixtures/`, which need nothing outside this repository:
+
+```sh
+npm run serve -- --extensionPath=./test/fixtures/fake-mode     # one mode: the panel is entirely its own
+npm run serve -- --extensionPath=./test/fixtures               # two: the switcher appears
+npm run desktop -- --extensionPath=test/fixtures/fake-mode     # the same on desktop, same flag
+```
+
+For the shape a user will have, `:modes` takes the published language extensions, latest of each, and
+needs no checkout at all:
+
+```sh
+npm run serve:modes                                                 # the two published language extensions
+npm run desktop:modes                                               # the same, installed into a fresh profile
+npm run serve:modes -- --extensionPath=./test/fixtures/fake-mode    # those two and a fixture: three segments
+```
+
+The ids are in the `:modes` scripts in `package.json`. **Never pass a checkout of one of them to
+`:modes`**, or the same extension is loaded twice under one id; run a checkout through plain `serve`,
+`chrome` or `desktop` instead:
+
+```sh
+npm run chrome -- --extensionPath=../a-language-extension --extensionPath=../another-one
+```
+
+All three `:modes` scripts go through `config/with-modes.mjs`. It takes `--extensionPath=<path>` once
+per extension folder and `--extensionId=publisher.name[@version]` once per published one, needs at
+least one of either, builds any checkout that has a `build` script (so `npm install` in each once),
+and passes everything else through. It names no extension itself.
+
+**A published extension is fetched once.** `config/extension-cache.mjs` downloads the VSIX from Open
+VSX into `.vscode-test/published/`, keyed by exact version, and later runs read it from there with
+no network at all. The profile wipe does not touch that folder. The `:modes` scripts pin no version,
+so each run costs one small lookup for what latest is and picks up a new release by itself; pass
+`@1.2.3` to hold a version and need no network at all.
+
+Do not use the web harness's own `--extensionId` for this. It resolves the id in the browser on
+every page load, so every run is a version check and a full download, which rate limits; it also
+refuses a pinned version, and drops an id it cannot parse while serving on regardless.
+
+**The hosts install it differently**, which is the one place the flag is not symmetric. Desktop
+installs the VSIX into the profile it just wiped, which is how a user has it; web has nothing to
+install into, so the unpacked folder is served from disk. **A desktop install resolves that
+extension's own dependencies and pack over the network**, so a launch is only fully offline when
+those are cached and installed first too.
+
+**`--extensionPath=` means the same thing everywhere**: an extension folder, or a folder of them, on
+web and on desktop alike. The web harness defines it, `config/extensions.mjs` gives the desktop
+launcher the same rule, and `config/with-modes.mjs` reads both through it.
+
+The fake mode's **Toggle Registration** command, in the palette, takes it away and brings it back,
+which is how the panel is watched changing shape without a reload.
+
 **Check both hosts.** They are two different environments: a Web Worker against a virtual filesystem
-on one side, a Node host against real `file:` URIs on the other. `CLAUDE.md` lists the traps in each.
+on one side, a Node host against real `file:` URIs on the other.
 
 ## Packaging
 
@@ -41,12 +86,7 @@ npx @vscode/vsce ls        # what would ship
 npx @vscode/vsce package   # a .vsix, for installing by hand
 ```
 
-A local package is not a release. Releases are built by CI from a clean checkout.
-
-**The working notes ship on purpose.** `CLAUDE.md`, `dev.md` and the plan files are absent from
-`.vscodeignore` by decision, so a local package carries whichever of them are on disk. Never add
-them to it: `.vscodeignore` is committed, so a line naming them is a permanent public record of
-files nobody was meant to go looking for.
+Releases are built and published via CI, triggered by a GitHub Release.
 
 ## Version floor
 
@@ -60,3 +100,8 @@ npm run desktop -- --vscode-version=1.91.1
 
 The flag reaches the launcher through npm, and going via the script is what builds first: running
 `config/desktop.mjs` by hand launches whatever `dist/` happens to hold.
+
+Every interactive launch starts as a fresh install: the launcher removes the bench's own profile,
+`.vscode-test/user-data` and `.vscode-test/extensions` in this checkout, or the `mbmgr-` fallback in
+the temp directory when the checkout is too deep, and seeds the one setting again. It refuses any
+other path, so the machine's own VS Code is never touched.

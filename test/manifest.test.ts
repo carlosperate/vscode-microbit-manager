@@ -11,15 +11,32 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs config, no types
 import { getBuildOptions } from '../config/esbuild.config.mjs';
 import manifest from '../package.json';
+import {
+	ACTIVE_MODE_CONTEXT,
+	BOARD_PANEL_MODES_CONTEXT,
+	FALLBACK_VIEW_ID,
+	MANY_MODES_CONTEXT,
+	NO_MODES_CONTEXT,
+	SWITCHER_VIEW_ID,
+} from '../src/config';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Keyed by the platform each was built for, spelled as the manifest does: repo-root-relative, leading `./`. */
+interface Built {
+	platform: string;
+	format: string;
+	outfile: string;
+}
+
+/**
+ * The host entry points, keyed by the platform each was built for and spelled
+ * as the manifest does: repo-root-relative, leading `./`. Only the CJS bundles:
+ * the webview's script is a document's, and no manifest field names it.
+ */
 const written = new Map<string, string>(
-	getBuildOptions().map((options: { platform: string; outfile: string }) => [
-		options.platform,
-		`./${path.relative(root, options.outfile).split(path.sep).join('/')}`,
-	])
+	(getBuildOptions() as Built[])
+		.filter((options) => options.format === 'cjs')
+		.map((options) => [options.platform, `./${path.relative(root, options.outfile).split(path.sep).join('/')}`])
 );
 
 describe('manifest entry points', () => {
@@ -35,7 +52,27 @@ describe('manifest entry points', () => {
 	});
 });
 
-// Deliberately not asserted: that the build writes *only* these two. A webview
-// runs its own script, built here and loaded by the webview rather than by the
-// host, so it is an outfile no manifest entry point names and such a check would
-// fail the day one is added, for a reason that is not a fault.
+describe('the three shapes of the panel', () => {
+	const views: { id: string; name: string; type?: string; when?: string; visibility?: string }[] =
+		manifest.contributes.views.bbcmicrobit;
+	const view = (id: string) => views.find((entry) => entry.id === id);
+
+	/** Set from one place in the code, so the container is never empty and never shows two shapes. */
+	it('gates the fallback panel and the switcher on the keys the registry sets', () => {
+		expect(view(FALLBACK_VIEW_ID)?.when).toBe(
+			`${NO_MODES_CONTEXT} || ${ACTIVE_MODE_CONTEXT} in ${BOARD_PANEL_MODES_CONTEXT}`
+		);
+		expect(view(SWITCHER_VIEW_ID)?.when).toBe(MANY_MODES_CONTEXT);
+	});
+
+	/** A webview, since a segmented control is what reads as a toggle; no `visibility`, so every host opens it the same way. */
+	it('draws the switcher as a webview that starts expanded', () => {
+		expect(view(SWITCHER_VIEW_ID)?.type).toBe('webview');
+		expect(view(SWITCHER_VIEW_ID)?.visibility).toBeUndefined();
+	});
+
+	/** The owner's `order` is honoured and every other extension's views sort after, so the strip is on top by default. */
+	it('puts the switcher before anything else this extension contributes', () => {
+		expect(views[0]?.id).toBe(SWITCHER_VIEW_ID);
+	});
+});

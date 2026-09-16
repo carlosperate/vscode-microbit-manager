@@ -17,12 +17,19 @@ import { build } from '../config/esbuild.config.mjs';
 let outDir: string;
 let browser: string;
 let node: string;
+let switcher: string;
+let switcherStyle: string;
 
 beforeAll(async () => {
 	outDir = await mkdtemp(path.join(tmpdir(), 'bbcmicrobit-manager-build-'));
 	await build(outDir);
 	const read = (name: string) => readFile(path.join(outDir, 'dist', name), 'utf8');
-	[browser, node] = await Promise.all([read('browser.js'), read('node.js')]);
+	[browser, node, switcher, switcherStyle] = await Promise.all([
+		read('browser.js'),
+		read('node.js'),
+		read('webview/switcher.js'),
+		read('webview/switcher.css'),
+	]);
 }, 60_000);
 
 afterAll(async () => {
@@ -68,17 +75,49 @@ it('keeps WebUSB out of the node bundle', () => {
 });
 
 /**
- * The shared status mapping needs the library's status enum, which is a runtime
- * value rather than a type. Pinning the size is what catches the day an import
- * drags the transport in behind it.
+ * What the desktop bundle takes from the libraries. The transport proper,
+ * `usb/transport.js`, `usb/daplink.js`, `usb/device-wrapper.js` and
+ * `usb/connection.js`, must never appear: it reads `navigator.usb`. The DAP and
+ * partial-flashing files do appear, pulled in by the root-package imports of the
+ * status and progress enums, and desktop never runs them; about a fifth of a
+ * small bundle, accepted over deep imports into the library's layout. An exact
+ * list rather than a size ratio, because shared code lands in both bundles and
+ * moves the ratio with every feature; adding to it should be a decision.
  */
-it('pays only the status enum for sharing the library between hosts', () => {
+it('pins what the node bundle takes from the libraries', () => {
 	expect(node).toContain('NoAuthorizedDevice');
-	expect(node.length).toBeLessThan(browser.length / 4);
+	expect(bundled(node)).toEqual([
+		'node_modules/@microbit/microbit-connection/build/esm/board-id.js',
+		'node_modules/@microbit/microbit-connection/build/esm/device.js',
+		'node_modules/@microbit/microbit-connection/build/esm/usb/arm-debug.js',
+		'node_modules/@microbit/microbit-connection/build/esm/usb/cmsis-dap.js',
+		'node_modules/@microbit/microbit-connection/build/esm/usb/cortex-m.js',
+		'node_modules/@microbit/microbit-connection/build/esm/usb/partial-flashing.js',
+		'node_modules/nrf-intel-hex/intel-hex.js',
+	]);
 });
 
+/**
+ * The switcher's script runs in a webview document, where there is no `require`
+ * and no `vscode`, and reaches the extension through `acquireVsCodeApi` alone.
+ * Its stylesheet lands beside it and is the whole of the theming: VS Code's
+ * variables are what make the strip follow a theme change without a reload, and
+ * the reduced-motion rule is what keeps the slide from a user who asked for none.
+ */
+it('builds the switcher as a document script with its stylesheet beside it', () => {
+	expect(required(switcher)).toEqual([]);
+	expect(switcher).toContain('acquireVsCodeApi');
+	expect(switcher).not.toContain('module.exports');
+	expect(switcherStyle).toContain('--vscode-button-background');
+	expect(switcherStyle).toContain('prefers-reduced-motion');
+});
+
+/** The distinct first captures of a pattern across a bundle, sorted. */
+const found = (bundle: string, pattern: RegExp): string[] =>
+	[...new Set([...bundle.matchAll(pattern)].map((match) => match[1] ?? ''))].sort();
+
 /** Every `require(...)` left in a bundle, which is what the host has to supply. */
-function required(bundle: string): string[] {
-	const found = [...bundle.matchAll(/require\(["']([^"']+)["']\)/g)].map((match) => match[1] ?? '');
-	return [...new Set(found)].sort();
-}
+const required = (bundle: string) => found(bundle, /require\(["']([^"']+)["']\)/g);
+
+/** Every library file folded into a bundle, from the path comments esbuild leaves above each. */
+const bundled = (bundle: string) => found(bundle, /^\/\/ (node_modules\/\S+)$/gm);
