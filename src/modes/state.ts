@@ -23,6 +23,9 @@ import type { SwitcherState } from '../webview/protocol';
 import { nudgeFor, pickMode, shapeOf, worthRemembering, type Shape } from './policy';
 import { admit, IncompatibleApiError, ModeRegistry } from './registry';
 
+/** Long enough to swallow the events of one save or delete, short enough to feel immediate. */
+const CLAIM_BURST_MS = 50;
+
 /** The active mode as the rest of the panel reads it: what it declared, nothing it can do. */
 export type ActiveMode = Pick<Mode, 'id' | 'label' | 'boardPanel' | 'menuCommands'>;
 
@@ -54,7 +57,7 @@ export function createModes(context: vscode.ExtensionContext): Modes {
 
 	const changedActive = new vscode.EventEmitter<string | undefined>();
 	const changedSnapshot = new vscode.EventEmitter<Snapshot>();
-	context.subscriptions.push(changedActive, changedSnapshot);
+	context.subscriptions.push(changedActive, changedSnapshot, new vscode.Disposable(() => clearTimeout(queued)));
 
 	const claimants = () => [...claims].filter(([, claimed]) => claimed).map(([id]) => id);
 
@@ -147,7 +150,7 @@ export function createModes(context: vscode.ExtensionContext): Modes {
 			mode = admit(candidate, API_VERSION);
 			unregister = registry.register(mode);
 			// Inside the try: a subscribe that throws must not leave the mode registered with nothing returned.
-			claimListener = mode.onDidChangeWorkspaceClaim?.(() => ask(mode));
+			claimListener = mode.onDidChangeWorkspaceClaim?.(askEveryone);
 		} catch (error) {
 			unregister?.();
 			log(`A mode was refused: ${String(error)}`);
@@ -175,6 +178,21 @@ export function createModes(context: vscode.ExtensionContext): Modes {
 	// a claim reads the workspace, and two overlapping reads can finish in either order.
 	const asks = new Map<string, number>();
 	const pending = new Set<string>();
+
+	/**
+	 * One mode noticing a change is the only signal there is that the workspace
+	 * moved, and a mode watches its own files, not another's. Deleting the last
+	 * `.py` is news to whoever watches `.cpp` too, so everyone answers again.
+	 */
+	let queued: ReturnType<typeof setTimeout> | undefined;
+	function askEveryone(): void {
+		// Each file event lands in its own turn, so merging a burst has to wait past one.
+		clearTimeout(queued);
+		queued = setTimeout(() => {
+			queued = undefined;
+			for (const mode of registry.modes()) ask(mode);
+		}, CLAIM_BURST_MS);
+	}
 
 	/** Asked every time, and the answer is only kept while it is the latest and the mode is still the registered one. */
 	function ask(mode: Mode): void {

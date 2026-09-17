@@ -8,8 +8,12 @@ import type { DriveIo, Machine, Volume } from '../drive/volume';
 
 const run = promisify(execFile);
 
-/** A wedged storage service must report no board, not hang Flash forever. */
-const VOLUME_QUERY_MS = 10_000;
+/**
+ * A wedged storage service must not hang Flash forever. Not 10s: a cold
+ * PowerShell start on a loaded machine reaches that, and what the user then sees
+ * is a refusal to say what is mounted, with a board plugged in.
+ */
+const VOLUME_QUERY_MS = 20_000;
 
 /**
  * `DriveType=2` is removable, so a network drive is never in the answer and
