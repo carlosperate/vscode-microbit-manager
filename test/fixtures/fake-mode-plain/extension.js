@@ -22,6 +22,8 @@ async function activate(context) {
 					id: 'plain',
 					extensionId: 'bbcmicrobit-test.fake-mode-plain',
 					label: 'Plain',
+					// So the status bar menu has a second mode's group to draw beside the other fixture's.
+					menuCommands: [{ command: 'fake-mode-plain.hello', label: 'Say Hello (plain)' }],
 				})
 			);
 			status.registered = true;

@@ -62,13 +62,8 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 	const implemented: Partial<Record<CommandId, CommandHandler>> = {
 		...host.commands,
 		[COMMANDS.showMenu]: (forMenu) => {
-			const { mode, shape } = modes.snapshot();
-			return showMenu(
-				forMenu,
-				host.boardState?.() ?? 'unpairable',
-				mode && { label: mode.label, entries: mode.menuCommands ?? [] },
-				shape === 'many'
-			);
+			const { menus, shape } = modes.snapshot();
+			return showMenu(forMenu, host.boardState?.() ?? 'unpairable', menus, shape === 'many');
 		},
 		[COMMANDS.switchMode]: switchMode(modes),
 		// Shared, because the only host-specific part of it is the write at the end.

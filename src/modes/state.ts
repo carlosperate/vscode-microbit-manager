@@ -19,6 +19,7 @@ import {
 import { setContext } from '../context';
 import { log } from '../log';
 import { openExtensionPage } from '../ui/extensionPage';
+import type { ModeMenu } from '../ui/menu';
 import type { SwitcherState } from '../webview/protocol';
 import { nudgeFor, pickMode, shapeOf, worthRemembering, type Shape } from './policy';
 import { admit, IncompatibleApiError, ModeRegistry } from './registry';
@@ -27,12 +28,14 @@ import { admit, IncompatibleApiError, ModeRegistry } from './registry';
 const CLAIM_BURST_MS = 50;
 
 /** The active mode as the rest of the panel reads it: what it declared, nothing it can do. */
-export type ActiveMode = Pick<Mode, 'id' | 'label' | 'boardPanel' | 'menuCommands'>;
+export type ActiveMode = Pick<Mode, 'id' | 'label' | 'boardPanel'>;
 
-/** What the switcher draws, plus what the rest of the panel needs to know about the active mode. */
+/** What the switcher draws, plus what the rest of the panel needs to know about the modes. */
 export interface Snapshot extends SwitcherState {
 	readonly shape: Shape;
 	readonly mode: ActiveMode | undefined;
+	/** Every registered mode's menu entries, in the switcher's order: the status bar offers them all. */
+	readonly menus: readonly ModeMenu[];
 }
 
 export interface Modes {
@@ -62,7 +65,8 @@ export function createModes(context: vscode.ExtensionContext): Modes {
 	const claimants = () => [...claims].filter(([, claimed]) => claimed).map(([id]) => id);
 
 	function snapshot(): Snapshot {
-		const modes = registry.modes().map(({ id, label }) => ({ id, label }));
+		const registered = registry.modes();
+		const modes = registered.map(({ id, label }) => ({ id, label }));
 		const nudged = nudgeFor(
 			modes.map((mode) => mode.id),
 			active,
@@ -74,7 +78,12 @@ export function createModes(context: vscode.ExtensionContext): Modes {
 			active,
 			nudge: modes.find((mode) => mode.id === nudged),
 			shape: shapeOf(modes.length),
-			mode: current && { id: current.id, label: current.label, boardPanel: current.boardPanel, menuCommands: current.menuCommands },
+			mode: current && { id: current.id, label: current.label, boardPanel: current.boardPanel },
+			menus: registered.map(({ id, label, menuCommands }) => ({
+				label,
+				active: id === active,
+				entries: menuCommands ?? [],
+			})),
 		};
 	}
 

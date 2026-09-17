@@ -49,7 +49,12 @@ export interface Mode {
 	claimsWorkspace?(): Promise<boolean>;
 	/** Fired when the answer to `claimsWorkspace` may have changed. */
 	readonly onDidChangeWorkspaceClaim?: vscode.Event<void>;
-	/** The mode's own commands, offered in the status bar menu while it is active. This extension's are always there. */
+	/**
+	 * The mode's own commands, offered in the status bar menu under this mode's
+	 * label for as long as it is registered, active or not. This extension's are
+	 * always there. A command that needs this mode's own views runs `switchMode`
+	 * itself: picking one here does not switch.
+	 */
 	readonly menuCommands?: readonly { readonly command: string; readonly label: string }[];
 	/**
 	 * True to have this extension show its own board section, Connect, Flash hex

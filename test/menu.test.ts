@@ -7,7 +7,7 @@ import {
 	menuSections,
 	type BoardState,
 	type Contributed,
-	type ModeEntry,
+	type ModeMenu,
 	type PaletteEntry,
 } from '../src/ui/menu';
 
@@ -27,16 +27,27 @@ const all = contributed(
 	COMMANDS.showMenu
 );
 
-const commands = (board: BoardState, mode: ModeEntry[] = [], canSwitch = false) =>
-	menuCommands(all, hiddenFromPalette(COMMANDS.showMenu), board, mode, canSwitch).map((entry) => entry.command);
+const commands = (board: BoardState, modes: ModeMenu[] = [], canSwitch = false) =>
+	menuCommands(all, hiddenFromPalette(COMMANDS.showMenu), board, modes, canSwitch).map((entry) => entry.command);
 
 const WORK = [COMMANDS.flashHexFile, COMMANDS.openTerminal];
 
-/** What a mode with a build step offers. */
-const MODE: ModeEntry[] = [
-	{ command: 'fake.build', label: 'Build' },
-	{ command: 'fake.flash', label: 'Flash' },
-];
+/** What a mode with a build step offers, while it is the active one. */
+const MODE: ModeMenu = {
+	label: 'Fake',
+	active: true,
+	entries: [
+		{ command: 'fake.build', label: 'Build' },
+		{ command: 'fake.flash', label: 'Flash' },
+	],
+};
+
+/** A second registered mode, which the user is not in. */
+const OTHER: ModeMenu = {
+	label: 'Plain',
+	active: false,
+	entries: [{ command: 'plain.hello', label: 'Say Hello' }],
+};
 
 describe('the status bar menu', () => {
 	it('leaves out whatever the manifest hides from the palette', () => {
@@ -108,31 +119,65 @@ describe('the status bar menu', () => {
 	});
 
 	/**
-	 * The mode's Flash is what the user came for and ours is the safety net, so
-	 * the mode's entries go ahead of ours, after Connect where there is one. In
-	 * its own words: the label is the mode's, not a manifest title.
+	 * A mode's Flash is what the user came for and ours is the safety net, so the
+	 * mode's entries go ahead of ours, after Connect where there is one. In its
+	 * own words: the label is the mode's, not a manifest title.
 	 */
-	it('offers the active mode its own entries, between Connect and ours', () => {
-		expect(commands('disconnected', MODE)).toEqual([COMMANDS.connect, 'fake.build', 'fake.flash', ...WORK]);
-		expect(commands('connected', MODE)).toEqual(['fake.build', 'fake.flash', ...WORK, COMMANDS.disconnect]);
-		expect(commands('unpairable', MODE)).toEqual(['fake.build', 'fake.flash', ...WORK]);
+	it('offers a mode its own entries, between Connect and ours', () => {
+		expect(commands('disconnected', [MODE])).toEqual([COMMANDS.connect, 'fake.build', 'fake.flash', ...WORK]);
+		expect(commands('connected', [MODE])).toEqual(['fake.build', 'fake.flash', ...WORK, COMMANDS.disconnect]);
+		expect(commands('unpairable', [MODE])).toEqual(['fake.build', 'fake.flash', ...WORK]);
 
-		const entries = menuCommands(all, [], 'unpairable', MODE);
+		const entries = menuCommands(all, [], 'unpairable', [MODE]);
 		expect(entries.find((entry) => entry.command === 'fake.build')?.title).toBe('Build');
+	});
+
+	/**
+	 * Reaching a registered mode's command should not cost a trip through the
+	 * switcher, so every mode is offered and the one the panel is in is not
+	 * special. They keep the order they were given, which is the switcher's.
+	 */
+	it('offers every registered mode, not only the active one', () => {
+		expect(commands('disconnected', [OTHER, MODE])).toEqual([
+			COMMANDS.connect,
+			'plain.hello',
+			'fake.build',
+			'fake.flash',
+			...WORK,
+		]);
+		expect(commands('connected', [MODE, OTHER])).toEqual([
+			'fake.build',
+			'fake.flash',
+			'plain.hello',
+			...WORK,
+			COMMANDS.disconnect,
+		]);
 	});
 
 	/** Ours are always offered, so a mode listing one of them would show it twice, once under its own name. */
 	it('shows a command of ours once even when the mode lists it too', () => {
-		const listing: ModeEntry[] = [...MODE, { command: COMMANDS.openTerminal, label: 'Terminal' }];
+		const listing: ModeMenu[] = [
+			{ ...MODE, entries: [...MODE.entries, { command: COMMANDS.openTerminal, label: 'Terminal' }] },
+		];
 		expect(commands('disconnected', listing)).toEqual([COMMANDS.connect, 'fake.build', 'fake.flash', ...WORK]);
 		const entries = menuCommands(all, [], 'disconnected', listing);
 		expect(entries.find((entry) => entry.command === COMMANDS.openTerminal)?.title).toBe(COMMANDS.openTerminal);
 	});
 
+	/** Two modes can name the same command, and a menu row that runs the same thing twice is a bug, not a choice. */
+	it('shows a command two modes both name once, under the first of them', () => {
+		const shared = { command: 'shared.cmd', label: 'Shared' };
+		const both: ModeMenu[] = [
+			{ ...MODE, entries: [shared] },
+			{ ...OTHER, entries: [shared, ...OTHER.entries] },
+		];
+		expect(commands('unpairable', both)).toEqual(['shared.cmd', 'plain.hello', ...WORK]);
+	});
+
 	/** Every shape keeps our two, so a mode offering neither leaves nothing unreachable. */
-	it('keeps Flash hex to micro:bit and Open Serial Terminal whatever the mode offers', () => {
+	it('keeps Flash hex to micro:bit and Open Serial Terminal whatever the modes offer', () => {
 		expect(commands('disconnected', [])).toEqual(expect.arrayContaining(WORK));
-		expect(commands('disconnected', MODE)).toEqual(expect.arrayContaining(WORK));
+		expect(commands('disconnected', [MODE, OTHER])).toEqual(expect.arrayContaining(WORK));
 	});
 
 	it('takes the titles the manifest gives, so the menu cannot drift from the palette', () => {
@@ -152,14 +197,14 @@ describe('the status bar menu', () => {
 });
 
 /**
- * A mode's "Flash" beside our "Flash hex to micro:bit" reads as a duplicate, so
- * the menu names who owns each group. The names are the mode's own label and
- * this extension's, which is all the manager knows about either.
+ * One mode's "Flash", another's and our "Flash hex to micro:bit" read as
+ * duplicates side by side, so the menu names who owns each group. The names are
+ * the modes' own labels and this extension's, which is all the manager knows
+ * about any of them.
  */
 describe('the menu in sections', () => {
-	const mode = { label: 'Fake', entries: MODE };
-	const sectioned = (board: BoardState) =>
-		menuSections(menuCommands(all, hiddenFromPalette(COMMANDS.showMenu), board, MODE, true), mode).map(
+	const sectioned = (board: BoardState, modes: ModeMenu[] = [MODE]) =>
+		menuSections(menuCommands(all, hiddenFromPalette(COMMANDS.showMenu), board, modes, true), modes, all).map(
 			(section) => ({ label: section.label, commands: section.entries.map((entry) => entry.command) })
 		);
 
@@ -178,10 +223,44 @@ describe('the menu in sections', () => {
 		]);
 	});
 
+	/** Every mode gets its own group, and the one the panel is in says so, since two groups otherwise read alike. */
+	it('gives each mode a group of its own and marks the active one', () => {
+		expect(sectioned('disconnected', [OTHER, MODE])).toEqual([
+			{ label: undefined, commands: [COMMANDS.connect] },
+			{ label: 'Plain', commands: ['plain.hello'] },
+			{ label: 'Fake (active)', commands: ['fake.build', 'fake.flash'] },
+			{ label: PRODUCT, commands: [...WORK, COMMANDS.switchMode] },
+		]);
+	});
+
+	/**
+	 * A mode may name one of our commands, and the row left standing is ours, so
+	 * it belongs in our group: taking it into the mode's would split ours in two
+	 * and repeat the mode's separator around them.
+	 */
+	it('keeps a command of ours in our group even when a mode names it too', () => {
+		const listing: ModeMenu[] = [
+			{ ...MODE, entries: [...MODE.entries, { command: COMMANDS.openTerminal, label: 'Terminal' }] },
+		];
+		expect(sectioned('connected', listing)).toEqual([
+			{ label: 'Fake', commands: ['fake.build', 'fake.flash'] },
+			{ label: PRODUCT, commands: [...WORK, COMMANDS.switchMode, COMMANDS.disconnect] },
+		]);
+	});
+
+	/** With one mode named, the marker names the only group it could be. */
+	it('leaves the marker off when only one mode offers anything', () => {
+		expect(sectioned('disconnected', [MODE, { ...OTHER, entries: [] }])).toEqual([
+			{ label: undefined, commands: [COMMANDS.connect] },
+			{ label: 'Fake', commands: ['fake.build', 'fake.flash'] },
+			{ label: PRODUCT, commands: [...WORK, COMMANDS.switchMode] },
+		]);
+	});
+
 	/** With nothing to tell apart, a separator would only name the one owner there is. */
-	it('draws no separators when the mode offers nothing, or there is no mode', () => {
+	it('draws no separators when the modes offer nothing, or there are none', () => {
 		const ours = menuCommands(all, hiddenFromPalette(COMMANDS.showMenu), 'disconnected');
-		expect(menuSections(ours, undefined)).toEqual([{ entries: ours }]);
-		expect(menuSections(ours, { label: 'Plain', entries: [] })).toEqual([{ entries: ours }]);
+		expect(menuSections(ours, [])).toEqual([{ entries: ours }]);
+		expect(menuSections(ours, [{ label: 'Plain', active: true, entries: [] }])).toEqual([{ entries: ours }]);
 	});
 });
