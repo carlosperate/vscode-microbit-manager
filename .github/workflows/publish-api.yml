@@ -1,0 +1,68 @@
+name: Publish API Types
+
+# `api/` is a types-only npm package, `vscode-bbcmicrobit-manager-api`, versioned apart
+# from the extension: it moves when the API changes, not when a release is cut.
+# So this publishes whatever version `api/package.json` names and does nothing
+# when that version is already on npm, which is most releases.
+
+on:
+  workflow_run:
+    workflows: ["Publish Extension"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Check only, do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish-api:
+    name: Publish vscode-bbcmicrobit-manager-api
+    runs-on: ubuntu-latest
+    # Never off the back of a failed extension publish: the types describe what that ships.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      # `workflow_run` starts from the default branch, so take the commit the extension shipped from.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+
+      # npm refuses to publish over a version, so ask before rather than reading a 403 after.
+      # `npm view` exits non-zero for a version that is not there, which is the answer wanted.
+      - name: Is this version already published?
+        id: published
+        run: |
+          VERSION=$(node -p "require('./api/package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if npm view "vscode-bbcmicrobit-manager-api@$VERSION" version > /dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "vscode-bbcmicrobit-manager-api@$VERSION is on npm already, nothing to publish"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            echo "vscode-bbcmicrobit-manager-api@$VERSION is new"
+          fi
+
+      - name: Publish to npm
+        if: steps.published.outputs.already == 'false' && (github.event_name == 'workflow_run' || github.event.inputs.dry_run == 'false')
+        working-directory: api
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.published.outputs.already }}" = "true" ]; then
+            echo "vscode-bbcmicrobit-manager-api@$VERSION was already published, this run changed nothing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "vscode-bbcmicrobit-manager-api@$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          fi
