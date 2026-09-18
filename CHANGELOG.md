@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.2.0 - Unreleased
+## v0.2.0 - 2026/09/18
 
 - The micro:bit panel is now always this extension's own. The MicroPython and
   C++ extensions each have their own icon and panel, so the switch at the top
