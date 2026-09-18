@@ -34,7 +34,7 @@ let attached: Board | undefined;
  * The mount point stands in for a serial number here: it is the only thing that
  * tells two boards apart on this host, and it is what `expect` is checked
  * against. A `DETAILS.TXT` naming a board id we do not know has no version, and
- * saying `V2` there would have a mode build the wrong image, so it says nothing.
+ * saying `V2` there would have a caller build the wrong image, so it says nothing.
  */
 export function board(): BoardInfo | undefined {
 	return attached?.version ? { version: attached.version, serialNumber: attached.path } : undefined;
@@ -45,7 +45,7 @@ const NO_BOARD = `${PRODUCT}: no micro:bit found. Plug one in and give it a mome
 /**
  * A volume search and a read of `DETAILS.TXT`, which is what connecting means
  * here. Every empty answer is explained first, a dismissed pick aside: the
- * caller is a mode that trusts this, and says nothing of its own.
+ * caller trusts this, and says nothing of its own.
  */
 export async function connect(): Promise<BoardInfo | undefined> {
 	const found = await search();
@@ -173,8 +173,7 @@ async function choose(found: readonly Board[]): Promise<Board | undefined> {
 
 /**
  * The one mount point a board already named, rather than a search: on Windows a
- * search is a PowerShell query, and this runs on the way into every flash a mode
- * asks for.
+ * search is a PowerShell query, and this runs on the way into every flash.
  */
 async function only(path: string): Promise<Board[]> {
 	const found = await boardAt(driveIo, machine(), path).catch(() => undefined);

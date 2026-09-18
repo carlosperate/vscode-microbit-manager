@@ -51,7 +51,7 @@
       "activitybar": [
         {
           "id": "bbcmicrobit",
-          "title": "BBC micro:bit",
+          "title": "BBC micro:bit Manager",
           "icon": "assets/activitybar.svg"
         }
       ]
@@ -59,35 +59,36 @@
     "views": {
       "bbcmicrobit": [
         {
-          "id": "bbcmicrobit-manager.switcher",
-          "name": "Mode",
-          "type": "webview",
-          "icon": "assets/activitybar.svg",
-          "when": "bbcmicrobit-manager.manyModes",
-          "initialSize": 1
-        },
-        {
-          "id": "bbcmicrobit-manager.fallback",
-          "name": "Board",
-          "icon": "assets/activitybar.svg",
-          "when": "bbcmicrobit-manager.noModes || bbcmicrobit-manager.activeMode in bbcmicrobit-manager.boardPanelModes"
+          "id": "bbcmicrobit-manager.board",
+          "name": "BBC micro:bit Manager",
+          "icon": "assets/activitybar.svg"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "bbcmicrobit-manager.fallback",
+        "view": "bbcmicrobit-manager.board",
         "contents": "[$(plug) Connect](command:bbcmicrobit-manager.connect)",
         "when": "bbcmicrobit-manager.canPair"
       },
       {
-        "view": "bbcmicrobit-manager.fallback",
+        "view": "bbcmicrobit-manager.board",
         "contents": "[$(zap) Flash hex to micro:bit](command:bbcmicrobit-manager.flashHexFile)\n[$(terminal) Open Serial Terminal](command:bbcmicrobit-manager.openTerminal)"
       },
       {
-        "view": "bbcmicrobit-manager.fallback",
+        "view": "bbcmicrobit-manager.board",
         "contents": "To write programs for the micro:bit, add a language:\n[Add MicroPython support](command:extension.open?%5B%22carlosperate.bbcmicrobit-micropython%22%5D)\n[Add C++ support](command:extension.open?%5B%22carlosperate.bbcmicrobit-cpp%22%5D)",
-        "when": "bbcmicrobit-manager.noModes"
+        "when": "bbcmicrobit-manager.offerMicroPython && bbcmicrobit-manager.offerCpp"
+      },
+      {
+        "view": "bbcmicrobit-manager.board",
+        "contents": "To write programs for the micro:bit, add a language:\n[Add MicroPython support](command:extension.open?%5B%22carlosperate.bbcmicrobit-micropython%22%5D)",
+        "when": "bbcmicrobit-manager.offerMicroPython && !bbcmicrobit-manager.offerCpp"
+      },
+      {
+        "view": "bbcmicrobit-manager.board",
+        "contents": "To write programs for the micro:bit, add a language:\n[Add C++ support](command:extension.open?%5B%22carlosperate.bbcmicrobit-cpp%22%5D)",
+        "when": "!bbcmicrobit-manager.offerMicroPython && bbcmicrobit-manager.offerCpp"
       }
     ],
     "commands": [
@@ -112,12 +113,6 @@
         "category": "BBC micro:bit Manager"
       },
       {
-        "command": "bbcmicrobit-manager.switchMode",
-        "title": "Switch Mode",
-        "category": "BBC micro:bit Manager",
-        "icon": "$(arrow-swap)"
-      },
-      {
         "command": "bbcmicrobit-manager.showMenu",
         "title": "Show Menu",
         "category": "BBC micro:bit Manager"
@@ -131,21 +126,10 @@
           "group": "navigation@100"
         }
       ],
-      "view/title": [
-        {
-          "command": "bbcmicrobit-manager.switchMode",
-          "when": "view == bbcmicrobit-manager.switcher",
-          "group": "navigation"
-        }
-      ],
       "commandPalette": [
         {
           "command": "bbcmicrobit-manager.showMenu",
           "when": "false"
-        },
-        {
-          "command": "bbcmicrobit-manager.switchMode",
-          "when": "bbcmicrobit-manager.manyModes"
         },
         {
           "command": "bbcmicrobit-manager.connect",
@@ -163,18 +147,18 @@
     "build": "node config/esbuild.config.mjs",
     "build:icon": "node config/build-icon.mjs",
     "build:integration": "esbuild test/integration/index.ts --bundle --outfile=test/integration/dist/index.js --format=cjs --platform=browser --main-fields=module,browser,main --external:vscode --log-level=warning",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/node && tsc --noEmit -p src/webview && tsc --noEmit -p test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/node && tsc --noEmit -p test",
     "test": "vitest run --config config/vitest.config.mts",
     "test:watch": "vitest --config config/vitest.config.mts",
     "test:all": "npm run typecheck && npm run build && npm test && npm run test:integration && npm run test:integration:desktop",
-    "test:integration": "npm run build && npm run build:integration && vscode-test-web --quality stable --headless --port=3001 --extensionDevelopmentPath=. --extensionPath=./test/fixtures/fake-mode --extensionTestsPath=./test/integration/dist/index.js ./test/workspace",
-    "test:integration:desktop": "npm run build && npm run build:integration && node config/desktop.mjs --test --extensionPath=test/fixtures/fake-mode",
+    "test:integration": "npm run build && npm run build:integration && vscode-test-web --quality stable --headless --port=3001 --extensionDevelopmentPath=. --extensionPath=./test/fixtures/fake-language --extensionTestsPath=./test/integration/dist/index.js ./test/workspace",
+    "test:integration:desktop": "npm run build && npm run build:integration && node config/desktop.mjs --test --extensionPath=test/fixtures/fake-language",
     "serve": "npm run build && vscode-test-web --quality stable --browser=none --port=3000 --extensionDevelopmentPath=. ./test/workspace",
-    "serve:modes": "node config/with-modes.mjs --extensionId=carlosperate.bbcmicrobit-micropython --extensionId=carlosperate.bbcmicrobit-cpp",
+    "serve:languages": "node config/with-extensions.mjs --extensionId=carlosperate.bbcmicrobit-micropython --extensionId=carlosperate.bbcmicrobit-cpp",
     "chrome": "npm run build && vscode-test-web --quality stable --browser=chromium --extensionDevelopmentPath=. ./test/workspace",
-    "chrome:modes": "node config/with-modes.mjs --chrome --extensionId=carlosperate.bbcmicrobit-micropython --extensionId=carlosperate.bbcmicrobit-cpp",
+    "chrome:languages": "node config/with-extensions.mjs --chrome --extensionId=carlosperate.bbcmicrobit-micropython --extensionId=carlosperate.bbcmicrobit-cpp",
     "desktop": "npm run build && node config/desktop.mjs",
-    "desktop:modes": "node config/with-modes.mjs --desktop --extensionId=carlosperate.bbcmicrobit-micropython --extensionId=carlosperate.bbcmicrobit-cpp"
+    "desktop:languages": "node config/with-extensions.mjs --desktop --extensionId=carlosperate.bbcmicrobit-micropython --extensionId=carlosperate.bbcmicrobit-cpp"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

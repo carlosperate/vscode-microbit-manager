@@ -36,7 +36,7 @@ export async function connect(): Promise<BoardInfo | undefined> {
 }
 
 /**
- * Connects first where nothing is, so a mode that already knows its board can
+ * Connects first where nothing is, so a caller that already knows its board can
  * pass it as `expect` and have it re-checked against what actually answers.
  */
 export async function flashHex(hex: HexSource, options?: { expect?: BoardInfo }): Promise<boolean> {

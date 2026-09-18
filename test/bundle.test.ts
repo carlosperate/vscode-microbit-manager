@@ -17,19 +17,12 @@ import { build } from '../config/esbuild.config.mjs';
 let outDir: string;
 let browser: string;
 let node: string;
-let switcher: string;
-let switcherStyle: string;
 
 beforeAll(async () => {
 	outDir = await mkdtemp(path.join(tmpdir(), 'bbcmicrobit-manager-build-'));
 	await build(outDir);
 	const read = (name: string) => readFile(path.join(outDir, 'dist', name), 'utf8');
-	[browser, node, switcher, switcherStyle] = await Promise.all([
-		read('browser.js'),
-		read('node.js'),
-		read('webview/switcher.js'),
-		read('webview/switcher.css'),
-	]);
+	[browser, node] = await Promise.all([read('browser.js'), read('node.js')]);
 }, 60_000);
 
 afterAll(async () => {
@@ -95,21 +88,6 @@ it('pins what the node bundle takes from the libraries', () => {
 		'node_modules/@microbit/microbit-connection/build/esm/usb/partial-flashing.js',
 		'node_modules/nrf-intel-hex/intel-hex.js',
 	]);
-});
-
-/**
- * The switcher's script runs in a webview document, where there is no `require`
- * and no `vscode`, and reaches the extension through `acquireVsCodeApi` alone.
- * Its stylesheet lands beside it and is the whole of the theming: VS Code's
- * variables are what make the strip follow a theme change without a reload, and
- * the reduced-motion rule is what keeps the slide from a user who asked for none.
- */
-it('builds the switcher as a document script with its stylesheet beside it', () => {
-	expect(required(switcher)).toEqual([]);
-	expect(switcher).toContain('acquireVsCodeApi');
-	expect(switcher).not.toContain('module.exports');
-	expect(switcherStyle).toContain('--vscode-button-background');
-	expect(switcherStyle).toContain('prefers-reduced-motion');
 });
 
 /** The distinct first captures of a pattern across a bundle, sorted. */

@@ -1,9 +1,14 @@
 # Release Notes
 
-## v0.1.1 - Unreleased
+## v0.2.0 - Unreleased
 
-- Status bar menu now shows all register mode commands, not just the commands
-  from the currently active mode.
+- The micro:bit panel is now always this extension's own. The MicroPython and
+  C++ extensions each have their own icon and panel, so the switch at the top
+  of the panel is gone.
+- The panel offers to install whichever language extension is missing.
+- The status bar menu lists every installed language extension's commands.
+- API 0.3.0: `registerMenuGroup` replaces the mode registration. A language
+  extension now checks the API version itself.
 - Improvements to build/test system
 
 ## v0.1.0 - 2026/09/17

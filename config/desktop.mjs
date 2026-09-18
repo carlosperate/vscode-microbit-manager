@@ -36,7 +36,7 @@ const benchRoot = path.join(root, '.vscode-test');
 const tempPrefix = path.join(os.tmpdir(), 'mbmgr-');
 const testing = process.argv.includes('--test');
 // Other extensions loaded from source beside this one, `--extensionPath=<path>`,
-// repeatable: the fixtures under test/fixtures/ are how a second mode exists. The
+// repeatable: the fixture under test/fixtures/ is how a second menu group exists. The
 // web harness spells it the same way and takes a folder of extensions too, so this
 // reads both through the same rule.
 const alongside = process.argv
@@ -121,8 +121,8 @@ function seedSettings(dir) {
 }
 
 /**
- * A bench that remembers is a bench that lies: a collapsed section, a chosen
- * mode or an extension installed last time would all pass for the first run's
+ * A bench that remembers is a bench that lies: a collapsed section, a dismissed
+ * message or an extension installed last time would all pass for the first run's
  * behaviour. So every interactive launch starts as a fresh install. Only a
  * directory under one of the two bench roots above is ever removed, checked by
  * path. Anything else is refused, whatever asked for it.

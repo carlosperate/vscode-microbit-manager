@@ -14,28 +14,22 @@ Works in the browser and on the desktop, with no server and no setup.
 
 ## Programming a micro:bit
 
-This extension puts a program **on** a board. It does not write one. For that,
-install the extension for the language you want and it will add its own tools to
-the same micro:bit panel. Today those are
+This extension puts a program **on** a micro:bit board, but it does not create
+one. For that, install extensions like
 [BBC micro:bit MicroPython](https://open-vsx.org/extension/carlosperate/bbcmicrobit-micropython),
-for Python programs, and
+for Python programs, and/or
 [BBC micro:bit C++](https://open-vsx.org/extension/carlosperate/bbcmicrobit-cpp),
-for C++ ones. With none installed, this extension's panel offers both.
+for C++ programmes.
 
-With one installed, the panel is that extension's: its build button, its tools,
-its layout. With more than one, a switch appears at the top of the panel to
-move between them.
-
-You do not need to install this extension yourself. Installing either of the
-above brings it along.
+The commands for these three extensions all appear in the micro:bit menu
+triggered by clicking the `micro:bit` status bar item.
 
 ## Requirements
 
 In a browser, putting a hex on a board needs WebUSB, so Chrome or Edge. The
 serial terminal also works in Firefox, over Web Serial.
 
-On the desktop there is nothing to allow: the board is reached through the
-`MICROBIT` drive it mounts.
+On the desktop the board is programmed via the `MICROBIT` USB drive it mounts.
 
 ## Licence
 

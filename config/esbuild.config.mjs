@@ -22,10 +22,9 @@ const shared = {
 };
 
 /**
- * The bundles this extension ships, rooted at `outDir`. One VSIX carries the two
- * extension bundles and the host picks: `browser` in a Web Worker, `main` in
- * Node. Those paths are a contract with those two fields in package.json. The
- * third runs in the switcher's webview document, which is neither.
+ * The bundles this extension ships, rooted at `outDir`. One VSIX carries both
+ * and the host picks: `browser` in a Web Worker, `main` in Node. Those paths are
+ * a contract with those two fields in package.json.
  *
  * @param {string} outDir directory to build into
  * @returns {import('esbuild').BuildOptions[]}
@@ -52,18 +51,6 @@ export function getBuildOptions(outDir = root) {
 			// `module` ahead of node's own default, so both bundles get the same
 			// build of a dependency rather than two that can drift apart.
 			mainFields: ['module', 'main'],
-		},
-		{
-			...shared,
-			entryPoints: [path.join(root, 'src', 'webview', 'switcher.ts')],
-			outfile: path.join(outDir, 'dist', 'webview', 'switcher.js'),
-			platform: 'browser',
-			target: 'es2020',
-			// A script tag in a document, not a module the host loads, so no CJS
-			// wrapper and no `vscode`: the webview reaches the extension through
-			// acquireVsCodeApi. Its stylesheet import lands beside it as switcher.css.
-			format: 'iife',
-			external: [],
 		},
 	];
 }

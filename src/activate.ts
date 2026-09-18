@@ -10,11 +10,10 @@ import { flashHexFile } from './commands/flashFile';
 import { showMenu } from './commands/showMenu';
 import { COMMANDS, PRODUCT, type CommandId } from './config';
 import { createLog, log } from './log';
-import { createModes } from './modes/state';
+import { MenuGroups } from './menuGroups';
 import { createSerialMonitor } from './serial/eclipse';
-import { createFallbackView } from './ui/fallback';
+import { createPanel } from './ui/panel';
 import type { BoardState } from './ui/menu';
-import { createSwitcher, switchMode } from './ui/switcher';
 
 export type CommandHandler = (context: vscode.ExtensionContext, ...args: unknown[]) => Promise<void>;
 
@@ -46,26 +45,20 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 	log(`Extension activated, ${host.entry} entry`);
 
 	createSerialMonitor(context);
-	// Before anything can register: dependencies activate first, so the panel is
-	// drawn from context keys the registry sets, never from a state read once here.
-	const modes = createModes(context);
-	createSwitcher(context, modes);
-	createFallbackView(context, modes);
+	createPanel(context);
 	// The status bar item belongs to whichever host built it: on web it tracks a
 	// live connection, so it is created with one rather than beside it.
 	host.start?.(context);
 
-	// One object for the command and for the API, so a mode and a button cannot
-	// start two flashes between them.
+	// One object for the command and for the API, so a language extension and a
+	// button cannot start two flashes between them.
 	const access: BoardAccess = { ...host.access, flashHex: oneAtATime(host.access.flashHex) };
+	const groups = new MenuGroups();
 
 	const implemented: Partial<Record<CommandId, CommandHandler>> = {
 		...host.commands,
-		[COMMANDS.showMenu]: (forMenu) => {
-			const { menus, shape } = modes.snapshot();
-			return showMenu(forMenu, host.boardState?.() ?? 'unpairable', menus, shape === 'many');
-		},
-		[COMMANDS.switchMode]: switchMode(modes),
+		// Read on every opening, so a group registered after activation is there.
+		[COMMANDS.showMenu]: (forMenu) => showMenu(forMenu, host.boardState?.() ?? 'unpairable', groups.list()),
 		// Shared, because the only host-specific part of it is the write at the end.
 		[COMMANDS.flashHexFile]: flashHexFile(access.flashHex),
 	};
@@ -92,14 +85,14 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 		);
 	}
 
-	return createApi(access, modes);
+	return createApi(access, groups);
 }
 
 /**
- * One flash at a time, whoever asked: the button, the Explorer, or a mode
- * through the API. Both hosts take a board away for the length of one, and
- * neither can be started again part way through, so the rule and the sentence
- * that explains it live here rather than once per host.
+ * One flash at a time, whoever asked: the button, the Explorer, or a language
+ * extension through the API. Both hosts take a board away for the length of
+ * one, and neither can be started again part way through, so the rule and the
+ * sentence that explains it live here rather than once per host.
  */
 function oneAtATime(flashHex: FlashHex): FlashHex {
 	let flashing: Promise<boolean> | undefined;

@@ -1,16 +1,15 @@
-import type { MicrobitManagerApi, Mode } from '../../api';
+import type { MenuGroup, MicrobitManagerApi } from '../../api';
 import * as vscode from 'vscode';
 
 import manifest from '../../package.json';
 import {
 	API_VERSION,
+	BOARD_VIEW_ID,
 	CAN_PAIR_CONTEXT,
 	COMMANDS,
 	CONTAINER_ID,
-	FALLBACK_VIEW_ID,
 	PRODUCT,
 	SERIAL_MONITOR_EXTENSION,
-	SWITCHER_VIEW_ID,
 } from '../../src/config';
 
 /** The id the host gives this extension, from the manifest rather than a copy of it. */
@@ -23,11 +22,11 @@ const EXTENSION_ID = `${manifest.publisher}.${manifest.name}`;
  * rather than stopping at the first one.
  */
 
-/** The second mode the harness loads from `test/fixtures/fake-mode`, and the only one until a real one exists. */
-const FAKE_MODE_ID = 'bbcmicrobit-test.fake-mode';
+/** The stand-in language extension the harness loads from `test/fixtures/fake-language`. */
+const FAKE_LANGUAGE_ID = 'bbcmicrobit-test.fake-language';
 
 /** What the fixture returns from `activate()`. */
-interface FakeModeStatus {
+interface FakeLanguageStatus {
 	registered: boolean;
 	error: string | undefined;
 }
@@ -96,13 +95,12 @@ async function checks(): Promise<void> {
 	checkAHexFileOffersTheFlash(extension);
 
 	if (!isApi(api)) return;
-	await checkTheFakeModeRegistered(api);
-	checkRegistrationIsGuarded(api);
-	await checkAClaimSeedsTheModeAndADisposalFallsBack(api);
+	await checkTheFakeLanguageRegistered();
+	checkAMenuGroupRegistersAndIsGuarded(api);
 }
 
 const isApi = (api: unknown): api is MicrobitManagerApi =>
-	typeof api === 'object' && api !== null && typeof (api as { registerMode?: unknown }).registerMode === 'function';
+	typeof api === 'object' && api !== null && typeof (api as { registerMenuGroup?: unknown }).registerMenuGroup === 'function';
 
 /**
  * A throw inside `activate()` would otherwise reject out of `run()` with no
@@ -131,9 +129,9 @@ function describeHost(): string {
 }
 
 /**
- * The exported object against the published types. It is the one thing a mode
- * sees, and nothing else in either repository would notice the two drifting
- * apart: `api/index.d.ts` is erased at compile time by design.
+ * The exported object against the published types. It is the one thing a
+ * language extension sees, and nothing else in either repository would notice
+ * the two drifting apart: `api/index.d.ts` is erased at compile time by design.
  */
 function checkTheExportedObjectIsTheContract(api: unknown): void {
 	const name = 'the exported object is what api/ declares';
@@ -147,21 +145,10 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 	const semver = typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version);
 
 	// Exactly these, in both directions: a member the types promise and the object
-	// lacks is a mode calling undefined, and one the object has and the types do not
-	// is a mode using something nothing guarantees will still be there.
-	const declared = [
-		'activeMode',
-		'board',
-		'commands',
-		'connect',
-		'flashHex',
-		'onDidChangeActiveMode',
-		'registerMode',
-		'saveHex',
-		'version',
-	];
-	// An `Event` is a function too: it is called to subscribe.
-	const callable = ['activeMode', 'board', 'connect', 'flashHex', 'onDidChangeActiveMode', 'registerMode', 'saveHex'].filter(
+	// lacks is a caller reaching undefined, and one the object has and the types do
+	// not is a caller using something nothing guarantees will still be there.
+	const declared = ['board', 'commands', 'connect', 'flashHex', 'registerMenuGroup', 'saveHex', 'version'];
+	const callable = ['board', 'connect', 'flashHex', 'registerMenuGroup', 'saveHex'].filter(
 		(member) => typeof (api as Record<string, unknown>)[member] !== 'function'
 	);
 	const commands = (api as { commands?: Record<string, unknown> }).commands ?? {};
@@ -173,7 +160,7 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 			callable.length === 0 &&
 			semver &&
 			version === API_VERSION &&
-			ids.join() === 'connect,disconnect,flashHexFile,openTerminal,switchMode',
+			ids.join() === 'connect,disconnect,flashHexFile,openTerminal',
 		`keys=[${keys.join(', ')}], commands=[${ids.join(', ')}], version=${String(version)}` +
 			`${callable.length ? `, not functions: ${callable.join(', ')}` : ''}`
 	);
@@ -181,17 +168,16 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 
 /**
  * A container id that does not resolve sends every view registered against it to
- * the Explorer, with a line in the log and nothing visible to explain it. This
- * is the extension that declares it, so every other micro:bit extension inherits
- * whatever is wrong here.
+ * the Explorer, with a line in the log and nothing visible to explain it. Its
+ * title is the product name, so the activity bar tooltip says whose icon it is.
  */
 function checkTheContainerIsContributed(extension: vscode.Extension<unknown>): void {
 	const containers: { id: string; title: string }[] =
 		extension.packageJSON?.contributes?.viewsContainers?.activitybar ?? [];
 	const container = containers.find((entry) => entry.id === CONTAINER_ID);
 	record(
-		'the shared container is contributed',
-		container?.title === 'BBC micro:bit' && !CONTAINER_ID.includes('.'),
+		'the container is contributed under the product name',
+		container?.title === PRODUCT && !CONTAINER_ID.includes('.'),
 		`declared ${containers.map((entry) => entry.id).join(', ') || 'nothing'}, title=${String(container?.title)}`
 	);
 }
@@ -204,14 +190,10 @@ function checkTheContainerIsContributed(extension: vscode.Extension<unknown>): v
  */
 async function checkTheWorkbenchAcceptedTheContributions(): Promise<void> {
 	const registered = await vscode.commands.getCommands(true);
-	const expected = [
-		`workbench.view.extension.${CONTAINER_ID}`,
-		`${FALLBACK_VIEW_ID}.focus`,
-		`${SWITCHER_VIEW_ID}.focus`,
-	];
+	const expected = [`workbench.view.extension.${CONTAINER_ID}`, `${BOARD_VIEW_ID}.focus`];
 	const missing = expected.filter((command) => !registered.includes(command));
 	record(
-		'the workbench registered the container and both views',
+		'the workbench registered the container and the view',
 		missing.length === 0,
 		missing.length ? `missing: ${missing.join(', ')}` : expected.join(', ')
 	);
@@ -226,7 +208,7 @@ async function checkTheWorkbenchAcceptedTheContributions(): Promise<void> {
 async function checkTheWelcomeContentPointsAtRealCommands(extension: vscode.Extension<unknown>): Promise<void> {
 	const welcome: { view: string; contents: string }[] = extension.packageJSON?.contributes?.viewsWelcome ?? [];
 	const contents = welcome
-		.filter((entry) => entry.view === FALLBACK_VIEW_ID)
+		.filter((entry) => entry.view === BOARD_VIEW_ID)
 		.map((entry) => entry.contents)
 		.join('\n');
 	const linked = [...contents.matchAll(/\(command:([^)?]+)/g)].map((match) => match[1] ?? '');
@@ -236,7 +218,7 @@ async function checkTheWelcomeContentPointsAtRealCommands(extension: vscode.Exte
 	const registered = await vscode.commands.getCommands(true);
 	const unknown = linked.filter((command) => !known.has(command) || !registered.includes(command));
 	record(
-		'the fallback panel links commands that exist',
+		'the panel links commands that exist',
 		linked.length > 0 && unknown.length === 0,
 		`links ${linked.join(', ') || 'nothing'}${unknown.length ? `, unknown: ${unknown.join(', ')}` : ''}`
 	);
@@ -387,168 +369,62 @@ function checkAHexFileOffersTheFlash(extension: vscode.Extension<unknown>): void
 /**
  * A real second extension, loaded by the harness, registering the way a
  * language extension would. Its absence is a harness fault and is reported as
- * one, since every check after this one needs it.
+ * one.
  */
-async function checkTheFakeModeRegistered(api: MicrobitManagerApi): Promise<void> {
-	const fake = vscode.extensions.getExtension<FakeModeStatus>(FAKE_MODE_ID);
+async function checkTheFakeLanguageRegistered(): Promise<void> {
+	const fake = vscode.extensions.getExtension<FakeLanguageStatus>(FAKE_LANGUAGE_ID);
 	if (!fake) {
 		record(
-			'the fake mode is loaded beside this extension',
+			'the fake language is loaded beside this extension',
 			false,
-			`${FAKE_MODE_ID} is not loaded. The harness passes test/fixtures/fake-mode with --extensionPath on web and --extension on desktop.`
+			`${FAKE_LANGUAGE_ID} is not loaded. The harness passes test/fixtures/fake-language with --extensionPath on both hosts.`
 		);
 		return;
 	}
 
-	let status: FakeModeStatus | undefined;
+	let status: FakeLanguageStatus | undefined;
 	try {
 		status = await fake.activate();
 	} catch (error) {
-		record('the fake mode registered', false, `activate() threw: ${String(error)}`);
+		record('the fake language registered its menu group', false, `activate() threw: ${String(error)}`);
 		return;
 	}
 	record(
-		'the fake mode registered',
+		'the fake language registered its menu group',
 		status?.registered === true,
 		`registered=${String(status?.registered)}${status?.error ? `, error: ${status.error}` : ''}`
 	);
-
-	record(
-		'the only registered mode is the active one, with nobody having chosen',
-		api.activeMode() === 'fake',
-		`activeMode()=${String(api.activeMode())}`
-	);
 }
 
-/** A well formed mode nobody else has registered. */
-const testMode = (over: Partial<Mode> = {}): Mode => ({
-	apiVersion: API_VERSION,
-	id: 'integration-test',
-	extensionId: 'bbcmicrobit-test.integration',
-	label: 'Test',
-	...over,
-});
-
-/** Registers and unregisters at once, answering with what was thrown. */
-function refusal(api: MicrobitManagerApi, candidate: unknown): Error | undefined {
+/**
+ * What the status bar menu shows cannot be read back without opening it, so
+ * this is the contract: a group registers and disposes from inside the host,
+ * twice without harm, and a malformed one is refused by the name of the field.
+ */
+function checkAMenuGroupRegistersAndIsGuarded(api: MicrobitManagerApi): void {
+	const group: MenuGroup = { label: 'Integration', commands: [{ command: COMMANDS.openTerminal, label: 'Terminal' }] };
+	let outcome: string;
 	try {
-		api.registerMode(candidate as Mode).dispose();
-		return undefined;
+		const registration = api.registerMenuGroup(group);
+		registration.dispose();
+		registration.dispose();
+		outcome = 'registered and disposed twice';
 	} catch (error) {
-		return error instanceof Error ? error : new Error(String(error));
+		outcome = `threw: ${String(error)}`;
 	}
-}
+	record('a menu group registers and disposes', outcome === 'registered and disposed twice', outcome);
 
-/**
- * Three refusals, each a different sentence, and the mode already registered
- * has to come through all of them untouched: a refusal is the other
- * extension's problem, never the panel's.
- */
-function checkRegistrationIsGuarded(api: MicrobitManagerApi): void {
-	const malformed = refusal(api, { ...testMode(), id: undefined });
+	let refusal: unknown;
+	try {
+		api.registerMenuGroup({ label: '', commands: [] }).dispose();
+	} catch (error) {
+		refusal = error;
+	}
 	record(
-		'a malformed mode is refused by the name of the field',
-		malformed instanceof TypeError && malformed.message.includes('`id`'),
-		malformed ? `${malformed.name}: ${malformed.message}` : 'accepted'
+		'a malformed menu group is refused by the name of the field',
+		refusal instanceof TypeError && refusal.message.includes('`label`'),
+		refusal instanceof Error ? `${refusal.name}: ${refusal.message}` : 'accepted'
 	);
-
-	const incompatible = refusal(api, testMode({ apiVersion: '999.0.0' }));
-	record(
-		'a mode needing a newer API is refused as incompatible, carrying both versions',
-		incompatible?.name === 'IncompatibleApiError' &&
-			incompatible.message.includes('999.0.0') &&
-			incompatible.message.includes(API_VERSION),
-		incompatible ? `${incompatible.name}: ${incompatible.message}` : 'accepted'
-	);
-
-	const duplicate = refusal(api, testMode({ id: 'fake' }));
-	record(
-		'a second mode with a taken id is refused, naming who has it',
-		duplicate !== undefined && duplicate.message.includes(FAKE_MODE_ID),
-		duplicate ? duplicate.message : 'accepted'
-	);
-
-	const accepted = refusal(api, testMode({ apiVersion: '0.0.1' }));
-	record(
-		'an older mode of the same major is served',
-		accepted === undefined,
-		accepted ? `${accepted.name}: ${accepted.message}` : 'registered and disposed'
-	);
-
-	record('the fake mode came through the refusals untouched', api.activeMode() === 'fake', `activeMode()=${String(api.activeMode())}`);
-}
-
-/** The next active mode, or a stall: nothing here may wait forever. */
-function nextActiveMode(api: MicrobitManagerApi): Promise<string | undefined> {
-	return new Promise((resolve) => {
-		const timer = setTimeout(() => {
-			listener.dispose();
-			resolve('(no change within 5s)');
-		}, 5000);
-		const listener = api.onDidChangeActiveMode((id) => {
-			clearTimeout(timer);
-			listener.dispose();
-			resolve(id);
-		});
-	});
-}
-
-/**
- * The seeding policy against a real registry on both hosts: with nobody having
- * chosen, the lowest id wins whatever the order, a lone claimant beats it, a
- * mode once claimed stays as the last used, and losing the active mode falls
- * back rather than pointing at nothing.
- */
-async function checkAClaimSeedsTheModeAndADisposalFallsBack(api: MicrobitManagerApi): Promise<void> {
-	// Registered after 'fake' and sorting before it, so this is order against id.
-	const lowered = nextActiveMode(api);
-	const quiet = api.registerMode(testMode({ id: 'aaa-quiet', label: 'Quiet' }));
-	const afterQuiet = await lowered;
-	record(
-		'with nobody having chosen, the lowest id wins over registration order',
-		afterQuiet === 'aaa-quiet',
-		`changed to ${String(afterQuiet)}`
-	);
-
-	let claiming = true;
-	const claimChanged = new vscode.EventEmitter<void>();
-	const seeded = nextActiveMode(api);
-	const claimant = api.registerMode(
-		testMode({
-			id: 'zzz-claimant',
-			label: 'Claimant',
-			claimsWorkspace: () => Promise.resolve(claiming),
-			onDidChangeWorkspaceClaim: claimChanged.event,
-		})
-	);
-	const afterClaim = await seeded;
-	record('a lone claimant becomes the active mode', afterClaim === 'zzz-claimant', `changed to ${String(afterClaim)}`);
-
-	// Withdrawing the claim leaves it active: a mode once claimed is the last used,
-	// and last used beats the lowest id.
-	claiming = false;
-	claimChanged.fire();
-	await new Promise((resolve) => setTimeout(resolve, 1000));
-	record(
-		'a mode that was claimed stays active as the last used once the claim is withdrawn',
-		api.activeMode() === 'zzz-claimant',
-		`activeMode()=${String(api.activeMode())}`
-	);
-
-	const fell = nextActiveMode(api);
-	claimant.dispose();
-	const afterDisposal = await fell;
-	record(
-		'disposing the active mode falls back to the lowest id once the last used has gone',
-		afterDisposal === 'aaa-quiet',
-		`changed to ${String(afterDisposal)}`
-	);
-
-	const back = nextActiveMode(api);
-	quiet.dispose();
-	const afterLast = await back;
-	record('disposing down to one mode leaves it active', afterLast === 'fake', `changed to ${String(afterLast)}`);
-	claimChanged.dispose();
 }
 
 function summarise(): void {

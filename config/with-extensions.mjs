@@ -1,7 +1,7 @@
 /**
- * Runs this extension with other extensions loaded beside it, so the switcher can
- * be driven with real modes. Which extensions those are is the caller's business:
- * this script knows only that they are extension folders or published ids.
+ * Runs this extension with other extensions loaded beside it, so the status bar
+ * menu can be driven with real menu groups. Which extensions those are is the
+ * caller's business: this script knows only extension folders and published ids.
  *
  * `--extensionPath=<path>` names a checkout, or a folder of them, and is built
  * first where it declares a `build` script. `--extensionId=publisher.name`, or
@@ -36,7 +36,7 @@ const valuesOf = (prefix) => flags.filter((flag) => flag.startsWith(prefix)).map
 
 /** A usage mistake, which a stack trace only buries. */
 function fail(message) {
-	console.error(`[modes] ${message}`);
+	console.error(`[with-extensions] ${message}`);
 	process.exit(1);
 }
 

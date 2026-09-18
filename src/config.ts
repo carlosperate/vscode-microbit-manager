@@ -10,19 +10,17 @@ export const COMMANDS = {
 	openTerminal: 'bbcmicrobit-manager.openTerminal',
 	/** The status bar item's action, so it is hidden from the palette and from itself. */
 	showMenu: 'bbcmicrobit-manager.showMenu',
-	/** With a mode id, switches to it; without one, asks. Hidden from the palette with fewer than two. */
-	switchMode: 'bbcmicrobit-manager.switchMode',
 } as const;
 
 export type CommandId = (typeof COMMANDS)[keyof typeof COMMANDS];
 
 /**
  * The API version, which is the version of the types package and not of this
- * extension. A mode declares the lowest one it works against, so this number
- * moves when the contract does and stays put when only the extension ships. It
- * lives here rather than beside the API object, which reaches `vscode`.
+ * extension. A language extension compares it with the one it was built
+ * against, so it moves when the contract does and stays put when only the
+ * extension ships. Here rather than beside the API object, which reaches `vscode`.
  */
-export const API_VERSION = '0.2.0';
+export const API_VERSION = '0.3.0';
 
 /**
  * The user-facing name. The display name, every command category, the output
@@ -32,30 +30,24 @@ export const API_VERSION = '0.2.0';
 export const PRODUCT = 'BBC micro:bit Manager';
 
 /**
- * The activity bar container every micro:bit extension contributes into. No dot
- * in it: the workbench schema for a container id is `/^[a-z0-9_-]+$/i`, and a
- * container id that does not resolve sends its views to the Explorer with
- * nothing but a log line to say why.
+ * This extension's activity bar container. No dot in it: the workbench schema
+ * for a container id is `/^[a-z0-9_-]+$/i`, and one that does not resolve sends
+ * its views to the Explorer with nothing but a log line to say why.
  */
 export const CONTAINER_ID = 'bbcmicrobit';
 
-/** The fallback panel: welcome content over a tree that stays empty, shown only while nothing is registered. */
-export const FALLBACK_VIEW_ID = 'bbcmicrobit-manager.fallback';
+/** The panel: welcome content over a tree that stays empty. */
+export const BOARD_VIEW_ID = 'bbcmicrobit-manager.board';
 
-/** The switcher: a webview drawing one segment per mode, shown only with two or more registered. */
-export const SWITCHER_VIEW_ID = 'bbcmicrobit-manager.switcher';
-
-/** The shape keys, nothing registered and two or more; `modes/state.ts` sets them in the order the layout needs. */
-export const NO_MODES_CONTEXT = 'bbcmicrobit-manager.noModes';
-export const MANY_MODES_CONTEXT = 'bbcmicrobit-manager.manyModes';
-/** The active mode's id, one string key so a switch is one change; a mode gates its views on `== <id>`. */
-export const ACTIVE_MODE_CONTEXT = 'bbcmicrobit-manager.activeMode';
-/** The ids of registered modes that asked for the board section; the fallback view gates on `activeMode in` this. */
-export const BOARD_PANEL_MODES_CONTEXT = 'bbcmicrobit-manager.boardPanelModes';
-
-/** The user's pick, per workspace; and the mode last active in any window, which seeds an unclaimed one. */
-export const CHOSEN_MODE_STATE = 'bbcmicrobit-manager.mode';
-export const LAST_MODE_STATE = 'bbcmicrobit-manager.lastMode';
+/**
+ * The language extensions the panel links to, each while it is not installed.
+ * The one place this extension names another: VS Code has no context key for
+ * "installed", so each gets a key this extension sets.
+ */
+export const OFFERS = [
+	{ extension: 'carlosperate.bbcmicrobit-micropython', context: 'bbcmicrobit-manager.offerMicroPython' },
+	{ extension: 'carlosperate.bbcmicrobit-cpp', context: 'bbcmicrobit-manager.offerCpp' },
+] as const;
 
 /**
  * The Open VSX companion that owns every serial terminal, on both hosts. A pack

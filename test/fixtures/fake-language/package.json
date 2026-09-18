@@ -1,0 +1,35 @@
+{
+  "name": "fake-language",
+  "displayName": "Fake Language",
+  "description": "A stand-in language extension for the bench and the integration tests. Registers one menu group with the BBC micro:bit Manager and nothing else.",
+  "version": "0.0.1",
+  "publisher": "bbcmicrobit-test",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "main": "./extension.js",
+  "browser": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "carlosperate.bbcmicrobit-manager"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "fake-language.flash",
+        "title": "Flash (fake)",
+        "category": "Fake Language"
+      }
+    ]
+  }
+}
