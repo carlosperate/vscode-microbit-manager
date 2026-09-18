@@ -61,7 +61,8 @@
         {
           "id": "bbcmicrobit-manager.board",
           "name": "BBC micro:bit Manager",
-          "icon": "assets/activitybar.svg"
+          "icon": "assets/activitybar.svg",
+          "when": "!bbcmicrobit-manager.panelHidden"
         }
       ]
     },
@@ -77,6 +78,16 @@
       },
       {
         "view": "bbcmicrobit-manager.board",
+        "contents": "[$(layout-sidebar-left) Combine micro:bit sidebars](command:bbcmicrobit-manager.combineSidebars)",
+        "when": "bbcmicrobit-manager.canCombine && !bbcmicrobit-manager.combined"
+      },
+      {
+        "view": "bbcmicrobit-manager.board",
+        "contents": "[$(split-horizontal) Separate micro:bit sidebars](command:bbcmicrobit-manager.separateSidebars)",
+        "when": "bbcmicrobit-manager.canCombine && bbcmicrobit-manager.combined"
+      },
+      {
+        "view": "bbcmicrobit-manager.board",
         "contents": "To write programs for the micro:bit, add a language:\n[Add MicroPython support](command:extension.open?%5B%22carlosperate.bbcmicrobit-micropython%22%5D)\n[Add C++ support](command:extension.open?%5B%22carlosperate.bbcmicrobit-cpp%22%5D)",
         "when": "bbcmicrobit-manager.offerMicroPython && bbcmicrobit-manager.offerCpp"
       },
@@ -89,6 +100,10 @@
         "view": "bbcmicrobit-manager.board",
         "contents": "To write programs for the micro:bit, add a language:\n[Add C++ support](command:extension.open?%5B%22carlosperate.bbcmicrobit-cpp%22%5D)",
         "when": "!bbcmicrobit-manager.offerMicroPython && bbcmicrobit-manager.offerCpp"
+      },
+      {
+        "view": "bbcmicrobit-manager.board",
+        "contents": "[$(eye-closed) Hide this side panel](command:bbcmicrobit-manager.hidePanel)"
       }
     ],
     "commands": [
@@ -116,6 +131,26 @@
         "command": "bbcmicrobit-manager.showMenu",
         "title": "Show Menu",
         "category": "BBC micro:bit Manager"
+      },
+      {
+        "command": "bbcmicrobit-manager.combineSidebars",
+        "title": "Combine micro:bit Sidebars",
+        "category": "BBC micro:bit Manager"
+      },
+      {
+        "command": "bbcmicrobit-manager.separateSidebars",
+        "title": "Separate micro:bit Sidebars",
+        "category": "BBC micro:bit Manager"
+      },
+      {
+        "command": "bbcmicrobit-manager.hidePanel",
+        "title": "Hide micro:bit Manager Panel",
+        "category": "BBC micro:bit Manager"
+      },
+      {
+        "command": "bbcmicrobit-manager.showPanel",
+        "title": "Show micro:bit Manager Panel",
+        "category": "BBC micro:bit Manager"
       }
     ],
     "menus": {
@@ -126,10 +161,38 @@
           "group": "navigation@100"
         }
       ],
+      "view/title": [
+        {
+          "command": "bbcmicrobit-manager.combineSidebars",
+          "when": "view == bbcmicrobit-manager.board && bbcmicrobit-manager.canCombine",
+          "group": "sidebars@1"
+        },
+        {
+          "command": "bbcmicrobit-manager.separateSidebars",
+          "when": "view == bbcmicrobit-manager.board && bbcmicrobit-manager.canCombine",
+          "group": "sidebars@2"
+        }
+      ],
       "commandPalette": [
         {
           "command": "bbcmicrobit-manager.showMenu",
           "when": "false"
+        },
+        {
+          "command": "bbcmicrobit-manager.combineSidebars",
+          "when": "bbcmicrobit-manager.canCombine"
+        },
+        {
+          "command": "bbcmicrobit-manager.separateSidebars",
+          "when": "bbcmicrobit-manager.canCombine"
+        },
+        {
+          "command": "bbcmicrobit-manager.hidePanel",
+          "when": "!bbcmicrobit-manager.panelHidden"
+        },
+        {
+          "command": "bbcmicrobit-manager.showPanel",
+          "when": "bbcmicrobit-manager.panelHidden"
         },
         {
           "command": "bbcmicrobit-manager.connect",

@@ -14,11 +14,12 @@ type Item = vscode.QuickPickItem & { command?: string };
 export async function showMenu(
 	context: vscode.ExtensionContext,
 	board: BoardState,
-	groups: readonly MenuGroup[]
+	groups: readonly MenuGroup[],
+	panelHidden: boolean
 ): Promise<void> {
 	const contributed: Contributed[] = context.extension.packageJSON?.contributes?.commands ?? [];
 	const palette: PaletteEntry[] = context.extension.packageJSON?.contributes?.menus?.commandPalette ?? [];
-	const entries = menuCommands(contributed, palette, board, groups);
+	const entries = menuCommands(contributed, palette, board, groups, panelHidden);
 
 	// Separators name who owns each part, so two languages' "Flash" and ours read apart.
 	const items: Item[] = [];

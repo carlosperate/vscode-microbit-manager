@@ -97,6 +97,7 @@ async function checks(): Promise<void> {
 	if (!isApi(api)) return;
 	await checkTheFakeLanguageRegistered();
 	checkAMenuGroupRegistersAndIsGuarded(api);
+	await checkTheLayoutCommandsRun();
 }
 
 const isApi = (api: unknown): api is MicrobitManagerApi =>
@@ -425,6 +426,27 @@ function checkAMenuGroupRegistersAndIsGuarded(api: MicrobitManagerApi): void {
 		refusal instanceof TypeError && refusal.message.includes('`label`'),
 		refusal instanceof Error ? `${refusal.name}: ${refusal.message}` : 'accepted'
 	);
+}
+
+/**
+ * The layout commands against the fixture's real sidebar, through the
+ * workbench's own `vscode.moveViews`, which rejects arguments it does not take,
+ * including Hide while combined and Combine while hidden. What ends up visible
+ * no API reports: the manual check's.
+ */
+async function checkTheLayoutCommandsRun(): Promise<void> {
+	const { combineSidebars, separateSidebars, hidePanel, showPanel } = COMMANDS;
+	const steps = [combineSidebars, hidePanel, combineSidebars, separateSidebars, hidePanel, showPanel];
+	const outcomes: string[] = [];
+	for (const command of steps) {
+		try {
+			await vscode.commands.executeCommand(command);
+			outcomes.push(`${command.split('.').pop()} ran`);
+		} catch (error) {
+			outcomes.push(`${command.split('.').pop()} threw: ${String(error)}`);
+		}
+	}
+	record('the layout commands run in any order without an error', outcomes.every((line) => line.endsWith(' ran')), outcomes.join(', '));
 }
 
 function summarise(): void {

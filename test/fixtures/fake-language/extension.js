@@ -1,6 +1,6 @@
 /**
- * A stand-in language extension: it registers one menu group and nothing else,
- * so the status bar menu has a second group with no real one installed. Plain
+ * A stand-in language extension: one menu group and a sidebar of one view, so
+ * the status bar menu and the Combine button have something to work with. Plain
  * CommonJS with no build step, loaded by both hosts from this folder.
  */
 const vscode = require('vscode');
@@ -14,7 +14,11 @@ function activate(context) {
 
 	try {
 		context.subscriptions.push(
-			api.registerMenuGroup({ label: 'Fake', commands: [{ command: 'fake-language.flash', label: 'Flash (fake)' }] })
+			api.registerMenuGroup({
+				label: 'Fake',
+				commands: [{ command: 'fake-language.flash', label: 'Flash (fake)' }],
+				sidebar: { container: 'fake-language', views: ['fake-language.panel'] },
+			})
 		);
 		status.registered = true;
 	} catch (error) {
@@ -22,6 +26,7 @@ function activate(context) {
 	}
 
 	context.subscriptions.push(
+		vscode.window.registerTreeDataProvider('fake-language.panel', { getChildren: () => [], getTreeItem: (item) => item }),
 		// What a real Flash does: ask which board, build for it, hand the bytes over.
 		vscode.commands.registerCommand('fake-language.flash', async () => {
 			const board = await api?.connect();

@@ -10,6 +10,10 @@ export const COMMANDS = {
 	openTerminal: 'bbcmicrobit-manager.openTerminal',
 	/** The status bar item's action, so it is hidden from the palette and from itself. */
 	showMenu: 'bbcmicrobit-manager.showMenu',
+	combineSidebars: 'bbcmicrobit-manager.combineSidebars',
+	separateSidebars: 'bbcmicrobit-manager.separateSidebars',
+	hidePanel: 'bbcmicrobit-manager.hidePanel',
+	showPanel: 'bbcmicrobit-manager.showPanel',
 } as const;
 
 export type CommandId = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -38,6 +42,21 @@ export const CONTAINER_ID = 'bbcmicrobit';
 
 /** The panel: welcome content over a tree that stays empty. */
 export const BOARD_VIEW_ID = 'bbcmicrobit-manager.board';
+
+/** True while a registered group has a sidebar this panel can combine. */
+export const CAN_COMBINE_CONTEXT = 'bbcmicrobit-manager.canCombine';
+
+/**
+ * What Combine and Separate last did, kept per profile as VS Code keeps view
+ * locations. No API says where a view is, so a user's own drag is not seen.
+ */
+export const COMBINED_STATE = 'bbcmicrobit-manager.combined';
+
+/**
+ * The user hid the panel; the view's `when` reads it, and an empty container
+ * leaves the activity bar. VS Code has no command to hide one container's icon.
+ */
+export const PANEL_HIDDEN_STATE = 'bbcmicrobit-manager.panelHidden';
 
 /**
  * The language extensions the panel links to, each while it is not installed.

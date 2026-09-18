@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { createApi } from './api';
 import { flashHexFile } from './commands/flashFile';
 import { showMenu } from './commands/showMenu';
+import { createLayoutCommands } from './commands/layout';
 import { COMMANDS, PRODUCT, type CommandId } from './config';
 import { createLog, log } from './log';
 import { MenuGroups } from './menuGroups';
@@ -54,13 +55,19 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Micr
 	// button cannot start two flashes between them.
 	const access: BoardAccess = { ...host.access, flashHex: oneAtATime(host.access.flashHex) };
 	const groups = new MenuGroups();
+	const layout = createLayoutCommands(context, groups);
 
 	const implemented: Partial<Record<CommandId, CommandHandler>> = {
 		...host.commands,
 		// Read on every opening, so a group registered after activation is there.
-		[COMMANDS.showMenu]: (forMenu) => showMenu(forMenu, host.boardState?.() ?? 'unpairable', groups.list()),
+		[COMMANDS.showMenu]: (forMenu) =>
+			showMenu(forMenu, host.boardState?.() ?? 'unpairable', groups.list(), layout.panelHidden()),
 		// Shared, because the only host-specific part of it is the write at the end.
 		[COMMANDS.flashHexFile]: flashHexFile(access.flashHex),
+		[COMMANDS.combineSidebars]: layout.combine,
+		[COMMANDS.separateSidebars]: layout.separate,
+		[COMMANDS.hidePanel]: layout.hidePanel,
+		[COMMANDS.showPanel]: layout.showPanel,
 	};
 
 	// Manifest titles keep stub notifications in sync with the command palette.

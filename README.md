@@ -24,6 +24,13 @@ for C++ programmes.
 The commands for these three extensions all appear in the micro:bit menu
 triggered by clicking the `micro:bit` status bar item.
 
+Each extension has its own side panel.
+- **Combine micro:bit sidebars**, in this extension's panel, puts them all in one
+- **Separate micro:bit sidebars** splits them again
+- **Hide this side panel** removes this extension's icon
+
+To bring it back find the option in the `micro:bit` menu in the status bar.
+
 ## Requirements
 
 In a browser, putting a hex on a board needs WebUSB, so Chrome or Edge. The

@@ -1,7 +1,7 @@
 {
   "name": "fake-language",
   "displayName": "Fake Language",
-  "description": "A stand-in language extension for the bench and the integration tests. Registers one menu group with the BBC micro:bit Manager and nothing else.",
+  "description": "A stand-in language extension for the bench and the integration tests. Registers one menu group, with a sidebar of one view, with the BBC micro:bit Manager.",
   "version": "0.0.1",
   "publisher": "bbcmicrobit-test",
   "private": true,
@@ -24,6 +24,29 @@
     "virtualWorkspaces": true
   },
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "fake-language",
+          "title": "Fake Language",
+          "icon": "icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "fake-language": [
+        {
+          "id": "fake-language.panel",
+          "name": "Fake Language"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "fake-language.panel",
+        "contents": "The fake language's own panel.\n[Flash (fake)](command:fake-language.flash)"
+      }
+    ],
     "commands": [
       {
         "command": "fake-language.flash",

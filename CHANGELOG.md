@@ -7,8 +7,11 @@
   of the panel is gone.
 - The panel offers to install whichever language extension is missing.
 - The status bar menu lists every installed language extension's commands.
-- API 0.3.0: `registerMenuGroup` replaces the mode registration. A language
-  extension now checks the API version itself.
+- The panel can combine the micro:bit side panels into one and separate them
+  again, and can hide itself; the status bar menu brings it back.
+- API 0.3.0: `registerMenuGroup` replaces the mode registration, and can name
+  the extension's sidebar for combining. A language extension now checks the
+  API version itself.
 - Improvements to build/test system
 
 ## v0.1.0 - 2026/09/17

@@ -58,4 +58,23 @@ describe('menu groups', () => {
 		expect(refusal({ label: 'Fake', commands: [{ command: '', label: 'Flash' }] })).toContain('`commands`');
 		expect(refusal({ label: 'Fake', commands: [] })).toBe('accepted');
 	});
+
+	it('lists the sidebars of the groups that have one, copied, and none of the rest', () => {
+		const groups = new MenuGroups();
+		const sidebar = { container: 'fake-language', views: ['fake-language.panel'] };
+		groups.register({ ...group('Fake'), sidebar });
+		groups.register(group('Plain'));
+		sidebar.views.push('fake-language.other');
+		expect(groups.sidebars()).toEqual([{ container: 'fake-language', views: ['fake-language.panel'] }]);
+	});
+
+	/** An id `vscode.moveViews` cannot resolve moves nothing and says nothing, so it is refused here instead. */
+	it('refuses a sidebar it could not move', () => {
+		const withSidebar = (sidebar: unknown) => refusal({ ...group('Fake'), sidebar });
+		expect(withSidebar({ container: 'fake-language', views: ['fake-language.panel'] })).toBe('accepted');
+		expect(withSidebar({ container: 'workbench.view.extension.fake', views: ['fake.panel'] })).toContain('`sidebar`');
+		expect(withSidebar({ container: 'fake-language', views: [] })).toContain('`sidebar`');
+		expect(withSidebar({ container: 'fake-language', views: [''] })).toContain('`sidebar`');
+		expect(withSidebar({ views: ['fake.panel'] })).toContain('`sidebar`');
+	});
 });

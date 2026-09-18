@@ -3,7 +3,8 @@ import type { BoardAccess } from './activate';
 import * as vscode from 'vscode';
 
 import { saveHex } from './commands/saveHex';
-import { API_VERSION, COMMANDS } from './config';
+import { API_VERSION, CAN_COMBINE_CONTEXT, COMMANDS } from './config';
+import { setContext } from './context';
 import { log } from './log';
 import type { MenuGroups } from './menuGroups';
 
@@ -23,8 +24,11 @@ export const createApi = (access: BoardAccess, groups: MenuGroups): MicrobitMana
 			throw error;
 		}
 		log(`Menu group registered: ${group.label}`);
+		const offerCombine = () => setContext(CAN_COMBINE_CONTEXT, groups.sidebars().length > 0);
+		offerCombine();
 		return new vscode.Disposable(() => {
 			unregister();
+			offerCombine();
 			log(`Menu group unregistered: ${group.label}`);
 		});
 	},

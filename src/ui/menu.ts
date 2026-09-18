@@ -17,6 +17,9 @@ export interface PaletteEntry {
 /** In the order the work happens, which is neither the manifest's nor the palette's. */
 const WORK: readonly string[] = [COMMANDS.flashHexFile, COMMANDS.openTerminal];
 
+/** Sidebar layout rather than the micro:bit, so the panel offers them and this menu does not. */
+export const PANEL_ONLY: readonly string[] = [COMMANDS.combineSidebars, COMMANDS.separateSidebars, COMMANDS.hidePanel];
+
 /**
  * What holds the board, which decides which of Connect and Disconnect describe
  * anything. `held-by-terminal` is the Web Serial route: a terminal has the port
@@ -31,9 +34,10 @@ export type BoardState = 'unpairable' | 'disconnected' | 'connected' | 'held-by-
  * of ours: a language's Flash is what the user came for, ours the safety net.
  */
 export const menuOrder = (board: BoardState, theirs: readonly string[]): readonly string[] => {
-	if (board === 'connected') return [...theirs, ...WORK, COMMANDS.disconnect];
-	if (board === 'held-by-terminal') return [COMMANDS.connect, ...theirs, ...WORK, COMMANDS.disconnect];
-	return [COMMANDS.connect, ...theirs, ...WORK];
+	const ours = [...WORK, COMMANDS.showPanel];
+	if (board === 'connected') return [...theirs, ...ours, COMMANDS.disconnect];
+	if (board === 'held-by-terminal') return [COMMANDS.connect, ...theirs, ...ours, COMMANDS.disconnect];
+	return [COMMANDS.connect, ...theirs, ...ours];
 };
 
 /**
@@ -46,11 +50,15 @@ export function menuCommands(
 	contributed: readonly Contributed[],
 	palette: readonly PaletteEntry[],
 	board: BoardState,
-	groups: readonly MenuGroup[] = []
+	groups: readonly MenuGroup[] = [],
+	panelHidden = false
 ): Contributed[] {
 	// Only a flat `false` is decidable here; any other clause is the workbench's to evaluate.
 	const hidden = palette.filter((entry) => entry.when === 'false').map((entry) => entry.command);
-	const ours = contributed.filter((entry) => !hidden.includes(entry.command) && pairingAllows(entry.command, board));
+	// Show Panel is how a hidden panel comes back, so this menu offers it while, and only while, it is hidden.
+	const offered = (command: string) =>
+		!hidden.includes(command) && !PANEL_ONLY.includes(command) && (command !== COMMANDS.showPanel || panelHidden);
+	const ours = contributed.filter((entry) => offered(entry.command) && pairingAllows(entry.command, board));
 	// Named twice, offered once: ours keep our place and pairing rule, a shared one goes under the first group.
 	const taken = new Set(contributed.map((entry) => entry.command));
 	const theirs: Contributed[] = [];

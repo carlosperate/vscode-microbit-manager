@@ -24,10 +24,22 @@ export interface MenuCommand {
 	readonly label: string;
 }
 
-/** An extension's share of the status bar menu, listed under `label`. */
+/** An extension's own activity bar container and the views in it. */
+export interface Sidebar {
+	/** The container id as the manifest declares it, without `workbench.view.extension.`. */
+	readonly container: string;
+	readonly views: readonly string[];
+}
+
+/**
+ * An extension's share of the status bar menu, listed under `label`. With a
+ * `sidebar`, the manager's panel can combine those views into its own sidebar
+ * and send them back.
+ */
 export interface MenuGroup {
 	readonly label: string;
 	readonly commands: readonly MenuCommand[];
+	readonly sidebar?: Sidebar;
 }
 
 export interface MicrobitManagerApi {

@@ -2,7 +2,15 @@ import type { MenuGroup } from '../api';
 import { describe, expect, it } from 'vitest';
 
 import { COMMANDS, PRODUCT } from '../src/config';
-import { menuCommands, menuOrder, menuSections, type BoardState, type Contributed, type PaletteEntry } from '../src/ui/menu';
+import {
+	menuCommands,
+	menuOrder,
+	menuSections,
+	PANEL_ONLY,
+	type BoardState,
+	type Contributed,
+	type PaletteEntry,
+} from '../src/ui/menu';
 
 const contributed = (...commands: string[]): Contributed[] =>
 	commands.map((command) => ({ command, title: command }));
@@ -88,8 +96,25 @@ describe('the status bar menu', () => {
 	it('places every command it contributes, in every state', () => {
 		const states: BoardState[] = ['unpairable', 'disconnected', 'connected', 'held-by-terminal'];
 		const placed = new Set(states.flatMap((state) => [...menuOrder(state, [])]));
-		const missing = Object.values(COMMANDS).filter((id) => id !== COMMANDS.showMenu && !placed.has(id));
+		const missing = Object.values(COMMANDS).filter(
+			(id) => id !== COMMANDS.showMenu && !PANEL_ONLY.includes(id) && !placed.has(id)
+		);
 		expect(missing, 'add these to the menu order').toEqual([]);
+	});
+
+	it('leaves the sidebar layout commands to the panel', () => {
+		const entries = menuCommands(contributed(...PANEL_ONLY, COMMANDS.openTerminal), [], 'disconnected');
+		expect(entries.map((entry) => entry.command)).toEqual([COMMANDS.openTerminal]);
+	});
+
+	/** A hidden panel has no button to bring it back, so this menu is the way. */
+	it('offers Show Panel after our work, and only while the panel is hidden', () => {
+		const withShow = contributed(COMMANDS.connect, COMMANDS.disconnect, COMMANDS.showPanel, ...WORK);
+		const shown = (board: BoardState, hidden: boolean) =>
+			menuCommands(withShow, [], board, [], hidden).map((entry) => entry.command);
+		expect(shown('disconnected', true)).toEqual([COMMANDS.connect, ...WORK, COMMANDS.showPanel]);
+		expect(shown('connected', true)).toEqual([...WORK, COMMANDS.showPanel, COMMANDS.disconnect]);
+		expect(shown('disconnected', false)).not.toContain(COMMANDS.showPanel);
 	});
 
 	/**
