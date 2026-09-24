@@ -78,9 +78,14 @@ export async function flashHex(hex: HexSource, options?: { expect?: BoardInfo })
 	const target = expect ? found.find((board) => matches(board, expect)) : await choose(found);
 
 	if (!target) {
-		void vscode.window.showWarningMessage(
-			expect ? `${PRODUCT}: the micro:bit this was built for is not there any more, so nothing was sent.` : NO_BOARD
-		);
+		if (expect) {
+			void vscode.window.showWarningMessage(
+				`${PRODUCT}: the micro:bit this was built for is not there any more, so nothing was sent.`
+			);
+		} else if (found.length === 0) {
+			void vscode.window.showWarningMessage(NO_BOARD);
+		}
+		// Otherwise boards were found and the pick was dismissed, which needs no reply.
 		return false;
 	}
 	attached = target;

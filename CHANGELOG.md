@@ -5,6 +5,8 @@
 - API 0.3.1: `commands.showMenu`, the status bar menu's command id, for a
   language extension's own "show all actions" button. Compatible with 0.3.0.
 - Fix project description images not loading on vscode.dev.
+- Fix a "no micro:bit found" warning on desktop when flashing with two boards
+  plugged in and the choice between them is cancelled.
 
 ## v0.2.0 - 2026/09/18
 
