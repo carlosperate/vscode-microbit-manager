@@ -2,7 +2,7 @@
   "name": "bbcmicrobit-manager",
   "displayName": "BBC micro:bit Manager",
   "description": "Connect to a BBC micro:bit over WebUSB, flash a hex file and open a serial terminal. Shared by the micro:bit language extensions.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "carlosperate",
   "license": "MIT",
   "icon": "assets/icon.png",
