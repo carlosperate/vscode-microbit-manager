@@ -88,6 +88,10 @@
       },
       {
         "view": "bbcmicrobit-manager.board",
+        "contents": "[$(eye-closed) Hide this side panel](command:bbcmicrobit-manager.hidePanel)"
+      },
+      {
+        "view": "bbcmicrobit-manager.board",
         "contents": "To write programs for the micro:bit, add a language:\n[Add MicroPython support](command:extension.open?%5B%22carlosperate.bbcmicrobit-micropython%22%5D)\n[Add C++ support](command:extension.open?%5B%22carlosperate.bbcmicrobit-cpp%22%5D)",
         "when": "bbcmicrobit-manager.offerMicroPython && bbcmicrobit-manager.offerCpp"
       },
@@ -100,10 +104,6 @@
         "view": "bbcmicrobit-manager.board",
         "contents": "To write programs for the micro:bit, add a language:\n[Add C++ support](command:extension.open?%5B%22carlosperate.bbcmicrobit-cpp%22%5D)",
         "when": "!bbcmicrobit-manager.offerMicroPython && bbcmicrobit-manager.offerCpp"
-      },
-      {
-        "view": "bbcmicrobit-manager.board",
-        "contents": "[$(eye-closed) Hide this side panel](command:bbcmicrobit-manager.hidePanel)"
       }
     ],
     "commands": [

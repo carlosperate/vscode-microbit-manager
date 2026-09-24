@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.3.0
+
+- API 0.3.1: `commands.showMenu`, the status bar menu's command id, for a
+  language extension's own "show all actions" button. Compatible with 0.3.0.
+
 ## v0.2.0 - 2026/09/18
 
 - The micro:bit panel is now always this extension's own. The MicroPython and

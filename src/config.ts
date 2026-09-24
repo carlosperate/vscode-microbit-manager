@@ -24,7 +24,7 @@ export type CommandId = (typeof COMMANDS)[keyof typeof COMMANDS];
  * against, so it moves when the contract does and stays put when only the
  * extension ships. Here rather than beside the API object, which reaches `vscode`.
  */
-export const API_VERSION = '0.3.0';
+export const API_VERSION = '0.3.1';
 
 /**
  * The user-facing name. The display name, every command category, the output

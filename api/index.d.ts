@@ -85,8 +85,9 @@ export interface MicrobitManagerApi {
 
 	/**
 	 * Command ids to link to from your own buttons, since welcome content is
-	 * markdown and a button there is a link to a command id. `connect` and
-	 * `disconnect` are hidden by `bbcmicrobit-manager.canPair` where no device
+	 * markdown and a button there is a link to a command id. An id here never
+	 * changes within a compatible version, since manifests spell it out. `connect`
+	 * and `disconnect` are hidden by `bbcmicrobit-manager.canPair` where no device
 	 * chooser exists, so gate your own links on the same key.
 	 */
 	readonly commands: {
@@ -94,5 +95,6 @@ export interface MicrobitManagerApi {
 		readonly disconnect: string;
 		readonly openTerminal: string;
 		readonly flashHexFile: string;
+		readonly showMenu: string;
 	};
 }

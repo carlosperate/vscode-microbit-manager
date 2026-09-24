@@ -161,7 +161,7 @@ function checkTheExportedObjectIsTheContract(api: unknown): void {
 			callable.length === 0 &&
 			semver &&
 			version === API_VERSION &&
-			ids.join() === 'connect,disconnect,flashHexFile,openTerminal',
+			ids.join() === 'connect,disconnect,flashHexFile,openTerminal,showMenu',
 		`keys=[${keys.join(', ')}], commands=[${ids.join(', ')}], version=${String(version)}` +
 			`${callable.length ? `, not functions: ${callable.join(', ')}` : ''}`
 	);

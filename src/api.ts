@@ -41,5 +41,6 @@ export const createApi = (access: BoardAccess, groups: MenuGroups): MicrobitMana
 		disconnect: COMMANDS.disconnect,
 		openTerminal: COMMANDS.openTerminal,
 		flashHexFile: COMMANDS.flashHexFile,
+		showMenu: COMMANDS.showMenu,
 	},
 });
